@@ -1,0 +1,33 @@
+# Core runtime
+streamlit>=1.20
+
+# Backend web framework + server
+fastapi>=0.95
+uvicorn[standard]>=0.21
+
+# HTTP, multipart handling
+requests>=2.28
+python-multipart>=0.0.6
+
+# Data validation
+pydantic>=1.10
+
+# Image / video processing
+Pillow>=9.5
+ffmpeg-python>=0.2.0
+opencv-python-headless>=4.7.0
+
+# Cloud storage / uploads (S3)
+boto3>=1.26
+
+# Env / config
+python-dotenv>=1.0
+
+# Utilities / typing
+typing-extensions>=4.5
+
+# Production WSGI (optional for certain deployments)
+gunicorn>=20.1
+
+# Optional: official SDK for Gemini / Google Generative AI (uncomment if you use it)
+# google-generativeai>=0.1.0
