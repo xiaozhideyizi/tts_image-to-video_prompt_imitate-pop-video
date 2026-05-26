@@ -1,8 +1,11 @@
 import axios from 'axios'
 
-// 开发环境用 /api（Vite proxy 转发到 localhost:8000）
-// 生产环境用 VITE_API_URL（Railway 后端地址）
-const apiBase = import.meta.env.VITE_API_URL || '/api'
+// 生产环境：直连 Railway 后端
+// 开发环境：Vite proxy 转发到 localhost:8000
+const isDev = import.meta.env.DEV
+const apiBase = isDev
+  ? '/api'
+  : (import.meta.env.VITE_API_URL || 'https://incredible-alignment-production-4ba5.up.railway.app/api')
 
 const api = axios.create({
   baseURL: apiBase,
