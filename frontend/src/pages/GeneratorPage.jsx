@@ -126,7 +126,7 @@ export default function GeneratorPage() {
     <div className="generator-page">
       {/* 页面标题 */}
       <div className="generator-header">
-        <h1 className="page-title">TikTok爆款复刻机</h1>
+        <h1 className="page-title">广告爆款复刻机</h1>
         <p className="page-subtitle">上传视频，AI一键生成同款提示词</p>
       </div>
 
