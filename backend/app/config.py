@@ -11,8 +11,19 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = (
         "http://localhost:5173,"
         "https://advideo.ai,"
-        "https://www.advideo.ai"
+        "https://www.advideo.ai,"
+        "https://superb-babka-50ca8d.netlify.app"
     )
+
+    @property
+    def database_url(self) -> str:
+        """自动转换 postgres:// → postgresql+asyncpg://"""
+        url = self.DATABASE_URL
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+        elif url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return url
 
     @property
     def cors_origins_list(self) -> List[str]:

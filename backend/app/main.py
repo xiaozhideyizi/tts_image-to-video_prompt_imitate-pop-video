@@ -1,3 +1,5 @@
+import sys
+import traceback
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -8,7 +10,14 @@ from app.routers import auth, prompts
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await init_db()
+    try:
+        print(f"[STARTUP] Connecting to database: {settings.database_url.split('@')[-1] if '@' in settings.database_url else settings.database_url}")
+        await init_db()
+        print("[STARTUP] Database initialized successfully.")
+    except Exception as e:
+        print(f"[STARTUP ERROR] Database init failed: {e}", file=sys.stderr)
+        traceback.print_exc()
+        # 不阻止应用启动，让非数据库接口仍可访问
     yield
 
 
