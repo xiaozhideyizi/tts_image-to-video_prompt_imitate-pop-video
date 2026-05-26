@@ -30,21 +30,28 @@ class UserInfo(BaseModel):
 
 @router.post("/register", response_model=TokenResponse)
 async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(models.User).where(models.User.email == req.email))
-    if result.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="该邮箱已注册")
+    try:
+        result = await db.execute(select(models.User).where(models.User.email == req.email))
+        if result.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="该邮箱已注册")
 
-    user = models.User(
-        email=req.email,
-        username=req.username,
-        hashed_password=get_password_hash(req.password),
-    )
-    db.add(user)
-    await db.commit()
-    await db.refresh(user)
+        user = models.User(
+            email=req.email,
+            username=req.username,
+            hashed_password=get_password_hash(req.password),
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
 
-    token = create_access_token({"sub": user.email})
-    return {"access_token": token, "token_type": "bearer", "user": {"id": user.id, "email": user.email, "username": user.username}}
+        token = create_access_token({"sub": user.email})
+        return {"access_token": token, "token_type": "bearer", "user": {"id": user.id, "email": user.email, "username": user.username}}
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"注册失败: {str(e)}")
 
 
 @router.post("/token", response_model=TokenResponse)
