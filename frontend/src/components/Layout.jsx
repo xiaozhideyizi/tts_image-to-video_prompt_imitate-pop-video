@@ -9,7 +9,7 @@ export default function Layout() {
   return (
     <div className="app-layout">
       <aside className="sidebar">
-        <div className="sidebar-logo">🎬 提示词生成器</div>
+        <div className="sidebar-logo">🎬 TikTok爆款复刻机</div>
         <nav className="sidebar-nav">
           <NavLink to="/" end className={({ isActive }) => isActive ? 'active' : ''}>
             🚀 生成工具
