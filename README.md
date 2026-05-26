@@ -1,16 +1,25 @@
 # 动态视频提示词生成器 — 云端版
 
-> 原本地 HTML 工具升级为完整全栈 Web 应用
+> 从本地 HTML 工具升级为完整全栈 Web 应用，支持用户体系、AI 生成、云端存储与团队分享
+
+## 在线访问
+
+- **前端**: https://advideo.netlify.app
+- **后端 API**: https://incredible-alignment-production-4ba5.up.railway.app
+- **API 文档**: https://incredible-alignment-production-4ba5.up.railway.app/docs
 
 ## 技术栈
 
-| 层 | 技术 |
-|---|---|
-| 前端 | React 18 + Vite + React Router |
-| 后端 | Python FastAPI + SQLAlchemy |
-| 数据库 | SQLite（开发）/ PostgreSQL（生产） |
-| AI | 智谱 GLM-4-flash |
-| 部署 | Vercel（前端）+ Railway/Render（后端）|
+| 层级 | 技术 | 说明 |
+|------|------|------|
+| **前端** | React 18 + Vite + React Router | SPA 单页应用，响应式布局 |
+| **后端** | Python FastAPI + Uvicorn | 异步高性能 API 服务 |
+| **数据库** | PostgreSQL (生产) / SQLite (开发) | SQLAlchemy async ORM + asyncpg 驱动 |
+| **AI 引擎** | 智谱 GLM-4-flash | AI 提示词生成，本地规则降级兜底 |
+| **认证** | JWT (python-jose + passlib/bcrypt) | 注册/登录/Token 鉴权 |
+| **前端部署** | Netlify | 自动构建 + CDN 加速 |
+| **后端部署** | Railway | Docker 容器 + 托管 PostgreSQL |
+| **代码仓库** | GitHub | xiaozhideyizi/tts_image-to-video_prompt_imitate-pop-video |
 
 ## 快速启动（本地开发）
 
@@ -47,41 +56,39 @@ npm run dev
 
 前端运行在 http://localhost:5173
 
-## 部署到 Vercel + Railway
+## 部署指南
 
-### 后端部署（Railway 推荐）
+### 后端部署（Railway）
 
 1. 在 [Railway](https://railway.app) 创建新项目，连接 GitHub 仓库
-2. 选择 `backend` 目录
-3. 设置环境变量：
-   - `SECRET_KEY` = 随机字符串（可用 `openssl rand -hex 32` 生成）
+2. 设置 **Root Directory** 为 `backend`
+3. 添加 PostgreSQL 服务
+4. 设置环境变量：
+   - `SECRET_KEY` = 随机字符串（`openssl rand -hex 32`）
    - `ZHIPUAI_API_KEY` = 你的智谱 API Key
-   - `CORS_ORIGINS` = 你的前端域名（如 `https://your-app.vercel.app`）
-   - `DATABASE_URL` = Railway 自动提供的 PostgreSQL URL（改为 `postgresql+asyncpg://...`）
-4. 部署完成后记录后端 URL
+   - `DATABASE_URL` = Railway PostgreSQL 提供的连接字符串（代码自动转换 `postgres://` → `postgresql+asyncpg://`）
+   - `CORS_ORIGINS` = 前端域名（如 `https://advideo.netlify.app`）
+5. Builder 选 **Nixpacks**，startCommand: `uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}`
 
-### 前端部署（Vercel）
+> ⚠️ 注意：Railway `rootDirectory=backend` 时，startCommand **不能**包含 `cd backend`
 
-1. 在 [Vercel](https://vercel.com) 导入项目
-2. 设置 Root Directory 为 `frontend`
-3. 设置环境变量：
-   - `VITE_API_BASE_URL` = 后端 URL（如 `https://your-backend.railway.app`）
-4. 如果使用独立后端，修改 `vite.config.js` 中的 proxy target 为生产后端地址
+### 前端部署（Netlify）
 
-### 生产数据库切换
-
-将 `backend/.env` 中的 `DATABASE_URL` 改为：
-```
-postgresql+asyncpg://user:password@host:5432/dbname
-```
-并安装：`pip install asyncpg`
+1. 在 [Netlify](https://netlify.com) 导入 GitHub 仓库
+2. Build settings:
+   - Base directory: `frontend`
+   - Build command: `npm run build`
+   - Publish directory: `frontend/dist`
+3. 环境变量：
+   - `VITE_API_URL` = 后端 URL（如 `https://your-backend.railway.app`）
 
 ## 功能列表
 
-- [x] 用户注册 / 登录（JWT）
-- [x] 生成提示词（本地规则 + AI 两种模式）
-- [x] 历史记录云存储
-- [x] 查看 / 展开历史提示词
+- [x] 用户注册 / 登录（JWT 鉴权）
+- [x] 本地规则模式生成提示词（无需 API Key）
+- [x] AI 模式生成提示词（智谱 GLM-4-flash）
+- [x] AI 失败自动降级到本地规则
+- [x] 历史记录云存储（PostgreSQL）
 - [x] 生成分享链接（无需登录可查看）
 - [x] 删除历史记录
 - [x] 响应式布局（移动端适配）
@@ -92,25 +99,47 @@ postgresql+asyncpg://user:password@host:5432/dbname
 prompt-generator-cloud/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py          # FastAPI 入口
-│   │   ├── config.py        # 配置
-│   │   ├── database.py      # 数据库连接
-│   │   ├── models.py        # 数据模型
-│   │   ├── auth.py          # JWT 鉴权
+│   │   ├── main.py          # FastAPI 入口 + 生命周期
+│   │   ├── config.py        # 环境变量配置 + DB URL 自动转换
+│   │   ├── database.py      # 异步数据库引擎
+│   │   ├── models.py        # SQLAlchemy 模型 (User, PromptHistory)
+│   │   ├── auth.py          # JWT 创建/验证 + 密码哈希
 │   │   └── routers/
-│   │       ├── auth.py      # 注册/登录接口
-│   │       └── prompts.py   # 生成/历史接口
+│   │       ├── auth.py      # POST /api/auth/register, /token; GET /me
+│   │       └── prompts.py   # POST /generate; GET /history; POST/GET /share
 │   ├── requirements.txt
-│   ├── Dockerfile
 │   └── .env.example
 ├── frontend/
 │   ├── src/
-│   │   ├── App.jsx
-│   │   ├── api/             # API 封装
-│   │   ├── context/         # 全局状态
-│   │   ├── components/      # 布局组件
-│   │   └── pages/           # 页面
+│   │   ├── App.jsx           # 路由配置
+│   │   ├── api/              # API 客户端封装
+│   │   │   ├── client.js     # Axios 实例 + Token 拦截器
+│   │   │   └── index.js      # API 方法导出
+│   │   ├── context/          # React Context
+│   │   │   └── AuthContext.jsx  # 登录状态管理
+│   │   ├── components/
+│   │   │   └── Layout.jsx    # 全局布局 + 导航
+│   │   └── pages/
+│   │       ├── LoginPage.jsx     # 登录/注册
+│   │       ├── GeneratorPage.jsx # 提示词生成器
+│   │       ├── HistoryPage.jsx   # 历史记录
+│   │       └── SharePage.jsx     # 分享查看
 │   ├── package.json
 │   └── vite.config.js
-└── vercel.json
+├── railway.toml              # Railway 部署配置
+└── vercel.json               # Netlify 部署配置
 ```
+
+## API 概览
+
+| 方法 | 路径 | 说明 | 鉴权 |
+|------|------|------|------|
+| POST | `/api/auth/register` | 用户注册 | ❌ |
+| POST | `/api/auth/token` | 用户登录 | ❌ |
+| GET | `/api/auth/me` | 获取当前用户 | ✅ |
+| POST | `/api/prompts/generate` | 生成提示词 | ✅ |
+| GET | `/api/prompts/history` | 查询历史记录 | ✅ |
+| POST | `/api/prompts/history/{id}/share` | 生成分享链接 | ✅ |
+| GET | `/api/prompts/share/{token}` | 查看分享内容 | ❌ |
+| DELETE | `/api/prompts/history/{id}` | 删除历史记录 | ✅ |
+| GET | `/health` | 健康检查 | ❌ |
