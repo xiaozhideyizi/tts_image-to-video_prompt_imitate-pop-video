@@ -34,7 +34,8 @@ export default function LoginPage() {
   return (
     <div className="auth-container">
       <div className="auth-box">
-        <h2>🎬 动态提示词生成器</h2>
+        <h2>TikTok爆款复刻机</h2>
+        <p style={{textAlign:'center',color:'#888',marginTop:-8,marginBottom:16,fontSize:14}}>上传视频，AI一键生成同款提示词</p>
         {error && <div className="error-msg">{error}</div>}
         <form onSubmit={handleSubmit}>
           <div className="form-field">
