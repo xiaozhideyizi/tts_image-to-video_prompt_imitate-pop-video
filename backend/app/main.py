@@ -11,6 +11,7 @@ from app.routers import auth, prompts
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
+        print(f"[STARTUP] CORS origins: {settings.cors_origins_list}")
         print(f"[STARTUP] Connecting to database: {settings.database_url.split('@')[-1] if '@' in settings.database_url else settings.database_url}")
         await init_db()
         print("[STARTUP] Database initialized successfully.")
@@ -22,8 +23,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="动态视频提示词生成器 API",
-    version="1.0.0",
+    title="广告爆款复刻机 API",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
@@ -41,7 +42,7 @@ app.include_router(prompts.router)
 
 @app.get("/")
 async def root():
-    return {"status": "ok", "message": "动态视频提示词生成器 API v1.0"}
+    return {"status": "ok", "message": "广告爆款复刻机 API v2.0"}
 
 
 @app.get("/health")
