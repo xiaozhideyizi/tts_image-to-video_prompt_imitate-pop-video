@@ -286,6 +286,43 @@ body {
   background: rgba(0,212,255,0.2);
 }
 
+/* 文件预览 */
+.upload-preview {
+  width: 100%;
+  text-align: center;
+}
+
+.upload-file-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  font-size: 0.82em;
+  color: #aaa;
+  padding: 0 4px;
+}
+
+.upload-file-size {
+  color: #888;
+  font-size: 0.9em;
+}
+
+.upload-btn-clear {
+  margin-top: 8px;
+  background: rgba(255,80,80,0.1);
+  border: 1px solid rgba(255,80,80,0.25);
+  border-radius: 8px;
+  padding: 6px 14px;
+  color: #ff5050;
+  font-size: 0.82em;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.upload-btn-clear:hover {
+  background: rgba(255,80,80,0.2);
+}
+
 .upload-note {
   margin-top: 14px;
   font-size: 0.78em;

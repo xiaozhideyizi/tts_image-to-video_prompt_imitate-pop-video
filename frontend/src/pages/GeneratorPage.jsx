@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { promptApi } from '../api'
 
 // ========== 平台配置 ==========
@@ -73,8 +73,57 @@ export default function GeneratorPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState({})
+  const [videoFile, setVideoFile] = useState(null)
+  const [imageFile, setImageFile] = useState(null)
+  const [videoPreview, setVideoPreview] = useState(null)
+  const [imagePreview, setImagePreview] = useState(null)
+
+  const videoInputRef = useRef(null)
+  const imageInputRef = useRef(null)
 
   const update = (key, val) => setForm(f => ({ ...f, [key]: val }))
+
+  // 视频文件选择
+  const handleVideoSelect = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 100 * 1024 * 1024) {
+      setError('视频文件不能超过 100MB')
+      return
+    }
+    setVideoFile(file)
+    const url = URL.createObjectURL(file)
+    setVideoPreview(url)
+  }
+
+  // 图片文件选择
+  const handleImageSelect = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 10 * 1024 * 1024) {
+      setError('图片文件不能超过 10MB')
+      return
+    }
+    setImageFile(file)
+    const url = URL.createObjectURL(file)
+    setImagePreview(url)
+  }
+
+  // 清除视频
+  const handleClearVideo = () => {
+    setVideoFile(null)
+    if (videoPreview) URL.revokeObjectURL(videoPreview)
+    setVideoPreview(null)
+    if (videoInputRef.current) videoInputRef.current.value = ''
+  }
+
+  // 清除图片
+  const handleClearImage = () => {
+    setImageFile(null)
+    if (imagePreview) URL.revokeObjectURL(imagePreview)
+    setImagePreview(null)
+    if (imageInputRef.current) imageInputRef.current.value = ''
+  }
 
   const currentProfile = PLATFORM_PROFILES[form.platform] || PLATFORM_PROFILES.douyin
 
@@ -140,18 +189,58 @@ export default function GeneratorPage() {
 
             {/* 对标视频上传 */}
             <div className="upload-box">
-              <div className="upload-icon">🎬</div>
-              <div className="upload-label">上传对标视频</div>
-              <div className="upload-hint">支持 MP4 / MOV，最大 100MB</div>
-              <button className="upload-btn">选择视频文件</button>
+              <input
+                ref={videoInputRef}
+                type="file"
+                accept="video/mp4,video/quicktime,video/x-msvideo,video/webm"
+                style={{ display: 'none' }}
+                onChange={handleVideoSelect}
+              />
+              {videoPreview ? (
+                <div className="upload-preview">
+                  <video src={videoPreview} controls style={{ width: '100%', borderRadius: 8, maxHeight: 160 }} />
+                  <div className="upload-file-info">
+                    <span>📹 {videoFile?.name}</span>
+                    <span className="upload-file-size">{videoFile ? (videoFile.size / 1024 / 1024).toFixed(1) + ' MB' : ''}</span>
+                  </div>
+                  <button className="upload-btn-clear" onClick={handleClearVideo}>✕ 移除</button>
+                </div>
+              ) : (
+                <>
+                  <div className="upload-icon">🎬</div>
+                  <div className="upload-label">上传对标视频</div>
+                  <div className="upload-hint">支持 MP4 / MOV，最大 100MB</div>
+                  <button className="upload-btn" onClick={() => videoInputRef.current?.click()}>选择视频文件</button>
+                </>
+              )}
             </div>
 
             {/* 产品图片上传 */}
             <div className="upload-box" style={{marginTop:16}}>
-              <div className="upload-icon">🖼️</div>
-              <div className="upload-label">上传产品图片</div>
-              <div className="upload-hint">支持 JPG / PNG，建议高清</div>
-              <button className="upload-btn">选择图片文件</button>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                style={{ display: 'none' }}
+                onChange={handleImageSelect}
+              />
+              {imagePreview ? (
+                <div className="upload-preview">
+                  <img src={imagePreview} alt="产品图片" style={{ width: '100%', borderRadius: 8, maxHeight: 160, objectFit: 'contain' }} />
+                  <div className="upload-file-info">
+                    <span>🖼️ {imageFile?.name}</span>
+                    <span className="upload-file-size">{imageFile ? (imageFile.size / 1024 / 1024).toFixed(1) + ' MB' : ''}</span>
+                  </div>
+                  <button className="upload-btn-clear" onClick={handleClearImage}>✕ 移除</button>
+                </div>
+              ) : (
+                <>
+                  <div className="upload-icon">🖼️</div>
+                  <div className="upload-label">上传产品图片</div>
+                  <div className="upload-hint">支持 JPG / PNG，建议高清</div>
+                  <button className="upload-btn" onClick={() => imageInputRef.current?.click()}>选择图片文件</button>
+                </>
+              )}
             </div>
 
             <div className="upload-note">
