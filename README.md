@@ -4,7 +4,7 @@
 
 ## 在线访问
 
-- **前端**: https://advideo.netlify.app
+- **前端**: https://advideo-imitate.netlify.app
 - **后端 API**: https://incredible-alignment-production-4ba5.up.railway.app
 - **API 文档**: https://incredible-alignment-production-4ba5.up.railway.app/docs
 
@@ -67,7 +67,7 @@ npm run dev
    - `SECRET_KEY` = 随机字符串（`openssl rand -hex 32`）
    - `ZHIPUAI_API_KEY` = 你的智谱 API Key
    - `DATABASE_URL` = Railway PostgreSQL 提供的连接字符串（代码自动转换 `postgres://` → `postgresql+asyncpg://`）
-   - `CORS_ORIGINS` = 前端域名（如 `https://advideo.netlify.app`）
+   - `CORS_ORIGINS` = 前端域名（如 `https://advideo-imitate.netlify.app`）
 5. Builder 选 **Nixpacks**，startCommand: `uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}`
 
 > ⚠️ 注意：Railway `rootDirectory=backend` 时，startCommand **不能**包含 `cd backend`

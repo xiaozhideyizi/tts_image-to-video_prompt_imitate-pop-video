@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     ZHIPUAI_API_KEY: str = ""
     CORS_ORIGINS: str = (
         "http://localhost:5173,"
-        "https://advideo.netlify.app,"
+        "https://advideo-imitate.netlify.app,"
         "https://superb-babka-50ca8d.netlify.app"
     )
 

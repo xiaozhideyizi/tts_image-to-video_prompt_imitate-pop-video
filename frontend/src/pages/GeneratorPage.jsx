@@ -46,7 +46,8 @@ export default function GeneratorPage() {
 
   return (
     <div>
-      <h1 className="page-title">🎬 动态视频提示词生成器</h1>
+      <h1 className="page-title">TikTok爆款复刻机</h1>
+      <p style={{textAlign:'center',color:'#888',marginTop:-8,marginBottom:16,fontSize:14}}>上传视频，AI一键生成同款提示词</p>
 
       <div className="input-section">
         <div className="section-title">📝 产品信息</div>
