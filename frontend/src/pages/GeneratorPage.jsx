@@ -186,17 +186,11 @@ export default function GeneratorPage() {
     setError('')
   }
 
-  // 图片选择 + AI分析
-  const handleImageSelect = async (e) => {
-    const file = e.target.files?.[0]
+  // AI分析产品图片（独立函数，支持重新调用）
+  const doAnalyzeImage = async (file) => {
     if (!file) return
-    if (file.size > 10 * 1024 * 1024) { setError('图片文件不能超过 10MB'); return }
-    setImageFile(file)
-    setImagePreview(URL.createObjectURL(file))
-    setError('')
-
-    // AI分析产品图片
     setAnalyzing(true)
+    setError('')
     try {
       const fd = new FormData()
       fd.append('image', file)
@@ -208,15 +202,28 @@ export default function GeneratorPage() {
       }
     } catch (err) {
       const detail = err.response?.data?.detail || err.message || '未知错误'
-      console.log('AI分析失败:', detail)
+      console.log('[AI ANALYZE ERROR]', detail)
       if (detail.includes('未配置') || detail.includes('503')) {
         setError('AI分析服务未配置，请在后端环境变量中设置 ZHIPUAI_API_KEY')
+      } else if (detail.includes('timeout')) {
+        setError('AI图片分析超时，请点击「重新分析」重试')
       } else {
-        setError('AI图片分析失败：' + detail)
+        setError('AI图片分析失败：' + detail + '（可点击「重新分析」重试）')
       }
     } finally {
       setAnalyzing(false)
     }
+  }
+
+  // 图片选择 + AI分析
+  const handleImageSelect = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 10 * 1024 * 1024) { setError('图片文件不能超过 10MB'); return }
+    setImageFile(file)
+    setImagePreview(URL.createObjectURL(file))
+    setError('')
+    await doAnalyzeImage(file)
   }
 
   const handleClearVideo = () => {
@@ -489,8 +496,19 @@ export default function GeneratorPage() {
                   <div className="upload-file-info">
                     <span>🖼️ {imageFile?.name}</span>
                     <span className="upload-file-size">{imageFile ? (imageFile.size / 1024 / 1024).toFixed(1) + ' MB' : ''}</span>
+                    {aiAnalysis && <span className="upload-ai-status" style={{ color: '#4ade80', marginLeft: 8 }}>✅ AI已分析</span>}
+                    {(!aiAnalysis && !analyzing) && <span className="upload-ai-status" style={{ color: '#f87171', marginLeft: 8 }}>⚠️ 未分析</span>}
+                    {analyzing && <span className="upload-ai-status" style={{ color: '#fbbf24', marginLeft: 8 }}>🔄 AI分析中...</span>}
                   </div>
-                  <button className="upload-btn-clear" onClick={handleClearImage}>✕ 移除</button>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                    {!analyzing && imageFile && (
+                      <button className="upload-btn-retry" onClick={() => doAnalyzeImage(imageFile)}
+                        style={{ fontSize: 12, padding: '4px 12px', borderRadius: 6, border: '1px solid #4ade80', background: 'transparent', color: '#4ade80', cursor: 'pointer' }}>
+                        🔄 重新分析
+                      </button>
+                    )}
+                    <button className="upload-btn-clear" onClick={handleClearImage}>✕ 移除</button>
+                  </div>
                 </div>
               ) : (
                 <div className="upload-placeholder required" onClick={() => imageInputRef.current?.click()}>

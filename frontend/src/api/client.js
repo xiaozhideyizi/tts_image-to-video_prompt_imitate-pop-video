@@ -9,7 +9,7 @@ const apiBase = isLocalhost
 
 const api = axios.create({
   baseURL: apiBase,
-  timeout: 60000,
+  timeout: 120000, // AI视觉模型较慢，超时设为2分钟
 })
 
 api.interceptors.request.use((config) => {
