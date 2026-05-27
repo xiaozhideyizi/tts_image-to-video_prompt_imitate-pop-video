@@ -347,7 +347,22 @@ export default function GeneratorPage() {
       setPrompts(res.data.prompts)
       setHistoryId(res.data.history_id)
     } catch (err) {
-      setError(err.response?.data?.detail || '生成失败，请重试')
+      // 详细错误日志
+      console.error('[GENERATE ERROR]', err)
+      console.error('[RESPONSE]', err.response?.status, err.response?.data)
+      console.error('[REQUEST]', err.config?.url, err.message)
+      const detail = err.response?.data?.detail
+      if (typeof detail === 'string') {
+        setError(detail)
+      } else if (detail) {
+        setError(JSON.stringify(detail))
+      } else if (err.response) {
+        setError(`请求失败 (${err.response.status}): ${err.statusText}`)
+      } else if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+        setError('请求超时，请检查网络或稍后重试')
+      } else {
+        setError('生成失败，请重试: ' + (err.message || '未知错误'))
+      }
     } finally {
       setLoading(false)
     }

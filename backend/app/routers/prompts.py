@@ -744,26 +744,32 @@ async def generate_prompts(
     if use_ai and settings.ZHIPUAI_API_KEY:
         try:
             prompts = await _build_ai_prompts(params, count, has_video, has_image)
+            print(f"[GENERATE] AI生成成功，共{len(prompts)}条")
         except Exception as e:
             import traceback
             print(f"[AI ERROR] {e}")
             traceback.print_exc()
-            # AI 失败，fallback 到本地模式
+            # AI 失败，静默 fallback 到本地模式
             try:
                 prompts = [_build_single_prompt(params, i, has_video, has_image) for i in range(count)]
+                print(f"[FALLBACK] 本地生成成功，共{len(prompts)}条（AI失败已自动回退）")
             except Exception as e2:
                 import traceback
                 print(f"[LOCAL FALLBACK ERROR] {e2}")
                 traceback.print_exc()
-                raise HTTPException(status_code=500, detail=f"生成失败: AI错误={str(e)}, 本地fallback错误={str(e2)}")
+                raise HTTPException(status_code=500, detail=f"生成失败: {str(e2)}")
     else:
+        # 无AI或未配置API Key，使用本地模式
+        if use_ai and not settings.ZHIPUAI_API_KEY:
+            print(f"[WARN] 用户选择AI模式但ZHIPUAI_API_KEY未配置，使用本地模式")
         try:
             prompts = [_build_single_prompt(params, i, has_video, has_image) for i in range(count)]
+            print(f"[GENERATE] 本地生成成功，共{len(prompts)}条")
         except Exception as e:
             import traceback
             print(f"[LOCAL GENERATE ERROR] {e}")
             traceback.print_exc()
-            raise HTTPException(status_code=500, detail=f"本地生成失败: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
 
     # 保存历史记录
     history = models.PromptHistory(
