@@ -774,34 +774,43 @@ async def generate_prompts(
             raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
 
     # 保存历史记录（临时用 user_id=1 跳过登录）
-    history = models.PromptHistory(
-        user_id=1,  # TODO: 恢复登录后改回 current_user.id
-        product_name=product_name,
-        target_market=target_market,
-        target_language=target_language,
-        platform=platform,
-        voiceover_subtitle=voiceover_subtitle,
-        selling_points=selling_points,
-        video_script=video_script,
-        bgm_style=bgm_style,
-        audio_option=audio_option,
-        video_model=video_model,
-        prompts_json=json.dumps(prompts, ensure_ascii=False),
-        video_data=video_data,
-        video_filename=video_filename,
-        video_content_type=video_content_type,
-        image_data=image_data,
-        image_filename=image_filename,
-        image_content_type=image_content_type,
-        generated_count=len(prompts),
-        adopted_count=0,
-        style_weights=json.dumps(style_weights) if style_weights else None,
-    )
-    db.add(history)
-    await db.commit()
-    await db.refresh(history)
+    try:
+        history = models.PromptHistory(
+            user_id=1,  # TODO: 恢复登录后改回 current_user.id
+            product_name=product_name,
+            target_market=target_market,
+            target_language=target_language,
+            platform=platform,
+            voiceover_subtitle=voiceover_subtitle,
+            selling_points=selling_points,
+            video_script=video_script,
+            bgm_style=bgm_style,
+            audio_option=audio_option,
+            video_model=video_model,
+            prompts_json=json.dumps(prompts, ensure_ascii=False),
+            video_data=video_data,
+            video_filename=video_filename,
+            video_content_type=video_content_type,
+            image_data=image_data,
+            image_filename=image_filename,
+            image_content_type=image_content_type,
+            generated_count=len(prompts),
+            adopted_count=0,
+            style_weights=json.dumps(style_weights) if style_weights else None,
+        )
+        db.add(history)
+        await db.commit()
+        await db.refresh(history)
+        print(f"[DB SAVE] 历史记录保存成功, id={history.id}")
+    except Exception as db_err:
+        import traceback
+        print(f"[DB SAVE ERROR] {db_err}")
+        traceback.print_exc()
+        await db.rollback()
+        # 数据库保存失败仍返回结果，不阻断用户
+        history = None
 
-    return {"prompts": prompts, "history_id": history.id}
+    return {"prompts": prompts, "history_id": history.id if history else None}
 
 
 # ========== 文件服务端点 ==========
