@@ -297,6 +297,19 @@ VIDEO_MODELS = {
 }
 
 
+# ========== 提示词风格标签 ==========
+STYLE_LABELS = [
+    "痛点解决流",
+    "UGC种草风",
+    "产品场景展示",
+    "暴力测试风",
+    "情绪共鸣流",
+    "极速快剪流",
+    "高端大片风",
+    "搞笑反转风",
+]
+
+
 # ========== 分组分段逻辑（按视频模型能力） ==========
 def _split_prompt_by_duration(final_prompt: str, duration_sec: int, video_model: str = "seedance") -> list:
     """
@@ -393,27 +406,61 @@ def _build_single_prompt(params: dict, index: int, has_video: bool = False, has_
             "All human figures must be ORIGINAL and LOCALLY ADAPTED for the target market. "
         )
 
-    # 产品图片指引
+    # 产品图片强约束（1:1还原，不允许失真）
     image_note = ""
     if has_image:
-        image_note = "Strictly animate the provided product image. Maintain visual fidelity to the product's actual appearance. "
+        image_note = (
+            "CRITICAL PRODUCT IMAGE FIDELITY RULE:\n"
+            "- The uploaded product image MUST be faithfully replicated at 1:1 ratio without ANY distortion.\n"
+            "- Product shape, color, texture, logo, and details MUST be 100% preserved.\n"
+            "- NO creative alteration, NO style transfer, NO deformation of the product.\n"
+            "- The product must appear EXACTLY as shown in the reference image, only animated.\n"
+            "- Any AI-generated product that deviates from the uploaded image is STRICTLY FORBIDDEN.\n"
+        )
 
-    # 构建 hook 段
+    # 构建 hook 段（详细分镜描述）
     hook_content = f"{video_style_note}{subtitle_hint}"
     if not vs_config["voiceover"]:
         hook_content += "NO voiceover. Visual storytelling only. "
-    hook_content += f"{camera} as {physics}. {action}. {market_actor} interacts with {params['product_name']} with high energy motion."
+    hook_content += (
+        f"{camera} as {physics}. {action}. \n"
+        f"  DETAILED HOOK (0-{s1_end}s): \n"
+        f"  - Camera: {camera}, rapid approach to {params['product_name']}.\n"
+        f"  - Action: {action}, product revealed with {physics}.\n"
+        f"  - {market_actor} appears with high energy, grabs attention in <2 seconds.\n"
+        f"  - Product is positioned centrally, 1:1 ratio, no distortion.\n"
+        f"  - Lighting: dramatic key light from top-right, rim light on product edges.\n"
+        f"  - Transition: fast whip-pan into next segment.\n"
+    )
 
-    # showcase 段
-    showcase_content = "The camera continues dynamic movement. "
-    if points:
-        showcase_content += f"Showcasing {' and '.join(points[:2])} with rapid cuts and flowing transitions. "
-    showcase_content += f"{market_actor} demonstrates the product with swift, confident movements."
+    # showcase 段（详细分镜描述）
+    showcase_content = ""
+    for seg_idx, (sk, st) in enumerate(sections.items()):
+        if st.startswith("showcase"):
+            t_start = sk.split('-')[0]
+            t_end = sk.split('-')[1].replace('s', '')
+            pts_text = ', '.join(points[:3]) if points else 'premium quality'
+            showcase_content += (
+                f"  DETAILED SHOWCASE ({t_start}-{t_end}s):\n"
+                f"  - Camera: smooth orbit around product, revealing {pts_text}.\n"
+                f"  - Action: product rotates 45°, close-up on key features.\n"
+                f"  - {market_actor} demonstrates with swift confident movements.\n"
+                f"  - Product texture and material MUST match reference image exactly.\n"
+                f"  - Lighting: soft fill + rim, product appears premium and polished.\n"
+                f"  - Motion: flowing transitions, no abrupt cuts, 不超过3个镜头.\n"
+            )
 
-    # closing 段
-    closing_content = f"Epic final reveal. {params['product_name']} in perfect lighting. Dynamic slow-mo finale. Brand imprint, call to action."
+    # closing 段（详细分镜描述）
+    closing_content = (
+        f"  DETAILED CLOSING ({s2_end}-{dur_sec}s):\n"
+        f"  - Camera: slow pull-back, epic reveal of {params['product_name']} in perfect lighting.\n"
+        f"  - Action: product settles into hero shot position, 1:1 ratio, center frame.\n"
+        f"  - Dynamic slow-mo finale (0.5x speed), water/smoke particles swirl around product.\n"
+        f"  - Brand imprint fades in bottom-right, call to action top-left.\n"
+        f"  - Final frame holds for 1.5s, product image EXACTLY matches uploaded reference.\n"
+    )
 
-    # 组装分段
+    # 组装分段（每个时间段都有详细分镜描述）
     section_texts = {}
     for sk, st in sections.items():
         if st == "hook":
@@ -421,41 +468,67 @@ def _build_single_prompt(params: dict, index: int, has_video: bool = False, has_
         elif st.startswith("showcase"):
             section_texts[sk] = f"[Transition] {showcase_content}"
         elif st == "demo":
-            section_texts[sk] = "[Deep Demo] Detailed product interaction. Feature close-ups with smooth camera movement."
+            section_texts[sk] = (
+                "[Deep Demo] Detailed product interaction with extreme close-ups. "
+                "Camera moves in <10cm distance, revealing texture, material, craftsmanship. "
+                "Lighting emphasizes premium feel. 4K macro shots, no distortion of product shape."
+            )
         elif st == "closing":
             section_texts[sk] = f"[Conclusion] {closing_content}"
 
-    # 音频方案
+    # 音频方案（详细描述）
     audio_plan = ""
     if vs_config["voiceover"] and params.get("video_script"):
-        audio_plan = f"Voiceover: \"{params['video_script']}\""
+        audio_plan = f"Voiceover: \"{params['video_script']}\" (spoken with confident, energetic tone)"
     elif vs_config["voiceover"]:
-        audio_plan = "Voiceover: dynamic product narration"
+        audio_plan = "Voiceover: dynamic product narration with native-speaking local actor, energetic and persuasive"
     if params.get("bgm_style"):
-        audio_plan += (" | " if audio_plan else "") + f"BGM: {params['bgm_style']}"
+        audio_plan += (" | " if audio_plan else "") + f"BGM: {params['bgm_style']} (mixed at -12dB, ducking on voiceover)"
     if not audio_plan:
-        audio_plan = "Audio: Cinematic sync with motion"
+        audio_plan = "Audio: Cinematic sync with motion,  film-grade Foley effects, no voiceover"
 
+    # 组装最终提示词（强制要求500+词，详细分镜描述）
     dynamic_strategy = f"{camera} + {physics} + {action}"
-    sections_text = "\n\n".join(f"[{k}] {v}" for k, v in section_texts.items())
+    sections_text = "\n\n".join(f"[{k}]\n{v}" for k, v in section_texts.items())
+
+    # 计算目标词数（15s=500词，按比例调整）
+    target_words = max(500, int(dur_sec * 33))  # 约33词/秒
+
+    # 随机选择风格标签
+    import random
+    style_label = random.choice(STYLE_LABELS)
 
     final_prompt = (
+        f"【{style_label}】\n"
         f"{image_note}"
         f"Format: {orientation} {ratio}, {resolution}, {duration}, 30fps, MP4.\n"
         f"Platform: {profile['label']} | {voice_tag} | {sub_tag}\n"
         f"Vibe: {vibe}\n"
+        f"Target duration: {duration} → Prompt must be DETAILED and COMPREHENSIVE ({target_words}+ words total).\n"
         f"Dynamic strategy: {dynamic_strategy}\n\n"
+        f"=== TIME SEGMENT BREAKDOWN ===\n"
         f"{sections_text}\n\n"
-        f"Style tags: High motion, cinematic movement, 4k, no static shots.\n"
-        f"CRITICAL: All human figures must be ORIGINAL, locally adapted for {params['target_market']} market. Never copy reference video people."
+        f"=== PRODUCT FIDELITY REQUIREMENTS ===\n"
+        f"- Product MUST appear EXACTLY as in the uploaded reference image.\n"
+        f"- 1:1 ratio, no distortion, no creative alteration of product shape/color/logo.\n"
+        f"- Animate ONLY the product's presentation (rotation, lighting, particles), NOT its appearance.\n\n"
+        f"Style tags: High motion, cinematic movement, 4k, no static shots, commercial-grade rendering.\n"
+        f"CRITICAL: All human figures must be ORIGINAL, locally adapted for {params['target_market']} market. "
+        f"Never copy reference video people.\n"
+        f"FINAL CHECK: Before rendering verify product image matches uploaded reference 1:1. If not, regenerate."
     )
 
     # 分组分段（按视频模型能力）
     video_model = params.get("video_model", "seedance")
     prompt_groups = _split_prompt_by_duration(final_prompt, dur_sec, video_model)
 
+    # 随机选择风格标签
+    import random
+    style_label = random.choice(STYLE_LABELS)
+
     return {
         "index": index + 1,
+        "styleLabel": style_label,
         "audit": f"图片: {'✅' if has_image else '❌'} | 视频: {'✅' if has_video else '❌'}",
         "audioPlan": audio_plan,
         "dynamicStrategy": dynamic_strategy,
@@ -536,7 +609,8 @@ async def _build_ai_prompts(params: dict, count: int, has_video: bool = False, h
         "你生成的提示词需要：1.英文输出 2.强调动态感、镜头运动 3.按时间段分段 "
         "4.视频时长和画面格式严格按目标平台调性适配 "
         "5.finalPrompt首行必须包含格式参数 "
-        "6.参考视频只模仿风格/分镜/转场/动效/画面渲染，绝不抄人物 7.模特必须本土化原创"
+        "6.参考视频只模仿风格/分镜/转场/动效/画面渲染，绝不抄人物 7.模特必须本土化原创 "
+        "8.每条提示词必须包含一个风格标签（痛点解决流/UGC种草风/产品场景展示/暴力测试风/情绪共鸣流/极速快剪流/高端大片风/搞笑反转风）"
     )
     user_prompt = (
         f"为以下产品生成{count}条不同风格的AI视频提示词：\n"
@@ -553,11 +627,12 @@ async def _build_ai_prompts(params: dict, count: int, has_video: bool = False, h
         f"{image_instruction}"
         f"{group_instruction}"
         f"\n\n每条提示词的 finalPrompt 格式：\n"
-        f"第1行：Format: {profile['orientation']} {profile['ratio']}, {profile['resolution']}, {profile['duration']}, 30fps, MP4.\n"
-        f"第2行：Platform: {profile['label']} | {'With voiceover' if vs_config['voiceover'] else 'No voiceover'} | {'With subtitles' if vs_config['subtitle'] else 'No subtitles'}\n"
-        f"第3行：Vibe: {profile['vibe']}\n"
+        f"第1行：【风格标签】\n"
+        f"第2行：Format: {profile['orientation']} {profile['ratio']}, {profile['resolution']}, {profile['duration']}, 30fps, MP4.\n"
+        f"第3行：Platform: {profile['label']} | {'With voiceover' if vs_config['voiceover'] else 'No voiceover'} | {'With subtitles' if vs_config['subtitle'] else 'No subtitles'}\n"
+        f"第4行：Vibe: {profile['vibe']}\n"
         f"然后是动态策略和分段时间轴。末尾加: CRITICAL: All human figures must be ORIGINAL, locally adapted. Never copy reference video people.\n\n"
-        f"以JSON数组格式返回，每个元素包含 index(1-{count})、finalPrompt、dynamicStrategy、audioPlan、promptGroups(数组) 字段。"
+        f"以JSON数组格式返回，每个元素包含 index(1-{count})、styleLabel(风格标签)、finalPrompt、dynamicStrategy、audioPlan、promptGroups(数组) 字段。"
         f"只返回JSON，不要其他说明。"
     )
 
@@ -573,7 +648,11 @@ async def _build_ai_prompts(params: dict, count: int, has_video: bool = False, h
     # 使用健壮的JSON解析函数
     ai_prompts = _parse_ai_json_response(raw)
 
+    # 为每条提示词添加风格标签
+    import random
+
     for p in ai_prompts:
+        p.setdefault("styleLabel", random.choice(STYLE_LABELS))
         p.setdefault("audit", f"图片: {'✅' if has_image else '❌'} | 视频: {'✅' if has_video else '❌'}")
         # 确保 promptGroups 存在
         if "promptGroups" not in p:
