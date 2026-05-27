@@ -60,15 +60,36 @@ const SELLING_POINT_PRESETS = [
   '快速见效', '高端奢华', '口碑爆款', '定制服务', '送礼首选',
 ]
 
-const MARKET_PRESETS = [
-  { value: 'china', label: '中国大陆' },
-  { value: 'usa', label: '美国' },
-  { value: 'europe', label: '欧洲' },
-  { value: 'japan', label: '日本' },
-  { value: 'korea', label: '韩国' },
-  { value: 'southeast_asia', label: '东南亚' },
-  { value: 'global', label: '全球' },
-]
+// 级联市场数据 — 国家 → 语言
+const MARKET_CASCADE = {
+  singapore:    { label: '新加坡', languages: [{ value: 'english', label: '英语' }, { value: 'chinese', label: '中文' }, { value: 'malay', label: '马来语' }] },
+  uk:           { label: '英国', languages: [{ value: 'english', label: '英语' }] },
+  usa:          { label: '美国', languages: [{ value: 'english', label: '英语' }, { value: 'spanish', label: '西班牙语' }] },
+  saudi:        { label: '沙特阿拉伯', languages: [{ value: 'arabic', label: '阿拉伯语' }, { value: 'english', label: '英语' }] },
+  uae:          { label: '阿联酋', languages: [{ value: 'arabic', label: '阿拉伯语' }, { value: 'english', label: '英语' }] },
+  france:       { label: '法国', languages: [{ value: 'french', label: '法语' }, { value: 'english', label: '英语' }] },
+  germany:      { label: '德国', languages: [{ value: 'german', label: '德语' }, { value: 'english', label: '英语' }] },
+  italy:        { label: '意大利', languages: [{ value: 'italian', label: '意大利语' }, { value: 'english', label: '英语' }] },
+  spain:        { label: '西班牙', languages: [{ value: 'spanish', label: '西班牙语' }, { value: 'english', label: '英语' }] },
+  russia:       { label: '俄罗斯', languages: [{ value: 'russian', label: '俄语' }, { value: 'english', label: '英语' }] },
+  japan:        { label: '日本', languages: [{ value: 'japanese', label: '日语' }, { value: 'english', label: '英语' }] },
+  korea:        { label: '韩国', languages: [{ value: 'korean', label: '韩语' }, { value: 'english', label: '英语' }] },
+  china:        { label: '中国大陆', languages: [{ value: 'chinese', label: '中文' }] },
+  taiwan:       { label: '中国台湾', languages: [{ value: 'chinese', label: '中文' }, { value: 'english', label: '英语' }] },
+  hongkong:     { label: '中国香港', languages: [{ value: 'chinese', label: '中文' }, { value: 'english', label: '英语' }] },
+  thailand:     { label: '泰国', languages: [{ value: 'thai', label: '泰语' }, { value: 'english', label: '英语' }] },
+  vietnam:      { label: '越南', languages: [{ value: 'vietnamese', label: '越南语' }, { value: 'english', label: '英语' }] },
+  indonesia:    { label: '印尼', languages: [{ value: 'indonesian', label: '印尼语' }, { value: 'english', label: '英语' }] },
+  philippines:  { label: '菲律宾', languages: [{ value: 'english', label: '英语' }, { value: 'filipino', label: '菲律宾语' }] },
+  malaysia:     { label: '马来西亚', languages: [{ value: 'malay', label: '马来语' }, { value: 'chinese', label: '中文' }, { value: 'english', label: '英语' }] },
+  brazil:       { label: '巴西', languages: [{ value: 'portuguese', label: '葡萄牙语' }, { value: 'english', label: '英语' }] },
+  mexico:       { label: '墨西哥', languages: [{ value: 'spanish', label: '西班牙语' }, { value: 'english', label: '英语' }] },
+  australia:    { label: '澳大利亚', languages: [{ value: 'english', label: '英语' }] },
+  canada:       { label: '加拿大', languages: [{ value: 'english', label: '英语' }, { value: 'french', label: '法语' }] },
+  india:        { label: '印度', languages: [{ value: 'english', label: '英语' }, { value: 'hindi', label: '印地语' }] },
+  turkey:       { label: '土耳其', languages: [{ value: 'turkish', label: '土耳其语' }, { value: 'english', label: '英语' }] },
+  global:       { label: '全球', languages: [{ value: 'english', label: '英语' }] },
+}
 
 // ========== 步骤定义 ==========
 const STEPS = [
@@ -108,6 +129,15 @@ export default function GeneratorPage() {
   const [violationReason, setViolationReason] = useState('')
   const [stats, setStats] = useState(null)
 
+  // AI分析结果
+  const [aiAnalysis, setAiAnalysis] = useState(null) // {product_name, product_desc, selling_points:[]}
+  const [analyzing, setAnalyzing] = useState(false)
+
+  // 级联市场选择器状态
+  const [marketOpen, setMarketOpen] = useState(false)
+  const [selectedCountry, setSelectedCountry] = useState('usa')
+  const [selectedLang, setSelectedLang] = useState('english')
+
   const videoInputRef = useRef(null)
   const imageInputRef = useRef(null)
 
@@ -137,14 +167,31 @@ export default function GeneratorPage() {
     setError('')
   }
 
-  // 图片选择
-  const handleImageSelect = (e) => {
+  // 图片选择 + AI分析
+  const handleImageSelect = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
     if (file.size > 10 * 1024 * 1024) { setError('图片文件不能超过 10MB'); return }
     setImageFile(file)
     setImagePreview(URL.createObjectURL(file))
     setError('')
+
+    // AI分析产品图片
+    setAnalyzing(true)
+    try {
+      const fd = new FormData()
+      fd.append('image', file)
+      const res = await promptApi.analyzeImage(fd)
+      setAiAnalysis(res.data)
+      // 自动填充产品名称（如果用户还没填）
+      if (res.data.product_name && !form.product_name) {
+        update('product_name', res.data.product_name)
+      }
+    } catch (err) {
+      console.log('AI分析失败:', err)
+    } finally {
+      setAnalyzing(false)
+    }
   }
 
   const handleClearVideo = () => {
@@ -163,8 +210,17 @@ export default function GeneratorPage() {
 
   const handleCategoryChange = (catKey) => {
     update('platform', PLATFORM_OPTIONS[catKey].platforms[0].value)
-    if (catKey === 'overseas') { update('target_language', 'english'); update('target_market', 'usa') }
-    else { update('target_language', 'chinese'); update('target_market', 'china') }
+    if (catKey === 'overseas') {
+      setSelectedCountry('usa')
+      setSelectedLang('english')
+      update('target_language', 'english')
+      update('target_market', 'usa')
+    } else {
+      setSelectedCountry('china')
+      setSelectedLang('chinese')
+      update('target_language', 'chinese')
+      update('target_market', 'china')
+    }
   }
 
   // 卖点选择
@@ -186,14 +242,26 @@ export default function GeneratorPage() {
     setCustomSellingPoint('')
   }
 
-  // 市场选择
-  const selectMarket = (value) => {
-    update('target_market', value)
-    const m = MARKET_PRESETS.find(m => m.value === value)
-    if (m) {
-      const langMap = { china: 'chinese', usa: 'english', europe: 'english', japan: 'japanese', korea: 'korean', southeast_asia: 'chinese', global: 'english' }
-      update('target_language', langMap[value] || 'chinese')
-    }
+  // 级联市场选择
+  const selectCountry = (countryKey) => {
+    setSelectedCountry(countryKey)
+    update('target_market', countryKey)
+    // 默认选该国的第一种语言
+    const firstLang = MARKET_CASCADE[countryKey]?.languages[0]?.value || 'english'
+    setSelectedLang(firstLang)
+    update('target_language', firstLang)
+  }
+
+  const selectLanguage = (langKey) => {
+    setSelectedLang(langKey)
+    update('target_language', langKey)
+  }
+
+  const getMarketDisplay = () => {
+    const c = MARKET_CASCADE[selectedCountry]
+    if (!c) return ''
+    const l = c.languages.find(x => x.value === selectedLang)
+    return `${c.label} / ${l?.label || ''}`
   }
 
   // 生成
@@ -432,14 +500,49 @@ export default function GeneratorPage() {
           <div className="step-title">📝 第三步：产品配置</div>
           <div className="step-desc">告诉AI你的产品是什么、卖点和投放市场</div>
 
+          {/* AI分析结果展示 */}
+          {analyzing && (
+            <div className="ai-analyzing">
+              <div className="spinner-sm" />
+              <span>AI 正在分析产品图片...</span>
+            </div>
+          )}
+          {aiAnalysis && (
+            <div className="ai-analysis-card">
+              <div className="ai-analysis-title">🤖 AI 产品分析结果</div>
+              {aiAnalysis.product_name && (
+                <div className="ai-analysis-row"><span>产品名称：</span><strong>{aiAnalysis.product_name}</strong></div>
+              )}
+              {aiAnalysis.product_desc && (
+                <div className="ai-analysis-row"><span>产品描述：</span>{aiAnalysis.product_desc}</div>
+              )}
+              {aiAnalysis.selling_points?.length > 0 && (
+                <div className="ai-analysis-row">
+                  <span>AI推荐卖点：</span>
+                  <div className="ai-sp-tags">
+                    {aiAnalysis.selling_points.map((sp, i) => (
+                      <span key={i} className="ai-sp-tag">{sp}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="config-group">
             <label className="config-label">📦 商品名称 *</label>
             <input className="config-input" value={form.product_name} onChange={e => update('product_name', e.target.value)} placeholder="例：无线蓝牙耳机" />
           </div>
 
           <div className="config-group">
-            <label className="config-label">💡 核心卖点（点选 + 自定义输入）</label>
+            <label className="config-label">💡 核心卖点（点选 + 自定义输入，可多选）</label>
             <div className="chips-grid">
+              {/* AI推荐的卖点优先展示 */}
+              {aiAnalysis?.selling_points?.map((p, i) => (
+                <button key={`ai-${i}`} className={`chip chip-ai ${(form.selling_points || '').split(',').map(s=>s.trim()).includes(p) ? 'selected' : ''}`} onClick={() => toggleSellingPoint(p)}>
+                  ✨ {p}
+                </button>
+              ))}
               {SELLING_POINT_PRESETS.map(p => (
                 <button key={p} className={`chip ${(form.selling_points || '').split(',').map(s=>s.trim()).includes(p) ? 'selected' : ''}`} onClick={() => toggleSellingPoint(p)}>
                   {p}
@@ -460,14 +563,50 @@ export default function GeneratorPage() {
             )}
           </div>
 
+          {/* 级联市场选择器 */}
           <div className="config-group">
-            <label className="config-label">🌍 投放市场</label>
-            <div className="market-grid">
-              {MARKET_PRESETS.map(m => (
-                <button key={m.value} className={`market-card ${form.target_market === m.value ? 'selected' : ''}`} onClick={() => selectMarket(m.value)}>
-                  {m.label}
-                </button>
-              ))}
+            <label className="config-label">🌍 投放市场 & 语言</label>
+            <div className="cascade-market">
+              {/* 触发按钮 */}
+              <div className="cascade-trigger" onClick={() => setMarketOpen(!marketOpen)}>
+                <span>{getMarketDisplay() || '请选择投放市场'}</span>
+                <span className="cascade-arrow">{marketOpen ? '▲' : '▼'}</span>
+              </div>
+
+              {/* 级联面板 */}
+              {marketOpen && (
+                <div className="cascade-panel">
+                  <div className="cascade-left">
+                    <div className="cascade-section-title">国家/地区</div>
+                    <div className="cascade-list">
+                      {Object.entries(MARKET_CASCADE).map(([key, val]) => (
+                        <div
+                          key={key}
+                          className={`cascade-item ${selectedCountry === key ? 'active' : ''}`}
+                          onClick={() => selectCountry(key)}
+                        >
+                          {val.label}
+                          <span className="cascade-item-arrow">›</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="cascade-right">
+                    <div className="cascade-section-title">语言</div>
+                    <div className="cascade-list">
+                      {MARKET_CASCADE[selectedCountry]?.languages.map((lang) => (
+                        <div
+                          key={lang.value}
+                          className={`cascade-item ${selectedLang === lang.value ? 'active' : ''}`}
+                          onClick={() => selectLanguage(lang.value)}
+                        >
+                          {lang.label}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="market-note">👥 模特将根据投放市场本土化生成，不会复制参考视频人物</div>
           </div>
@@ -527,7 +666,7 @@ export default function GeneratorPage() {
             <div className="summary-row"><span>📦 产品：</span><strong>{form.product_name}</strong></div>
             <div className="summary-row"><span>💡 卖点：</span><strong>{form.selling_points || '未设置'}</strong></div>
             <div className="summary-row"><span>🎯 平台：</span><strong>{PLATFORM_PROFILES[form.platform]?.ratio} {currentProfile.duration}</strong></div>
-            <div className="summary-row"><span>🌍 市场：</span><strong>{MARKET_PRESETS.find(m => m.value === form.target_market)?.label}</strong></div>
+            <div className="summary-row"><span>🌍 市场：</span><strong>{getMarketDisplay()}</strong></div>
             <div className="summary-row"><span>🖼️ 产品图：</span><strong>{imageFile ? '✅ 已上传' : '❌ 未上传'}</strong></div>
             <div className="summary-row"><span>🎬 参考视频：</span><strong>{videoFile ? '✅ 已上传' : '无'}</strong></div>
           </div>

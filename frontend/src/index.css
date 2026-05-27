@@ -524,28 +524,187 @@ body {
 
 .tag-x:hover { opacity: 1; }
 
-/* 投放市场 */
-.market-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.market-card {
-  padding: 10px;
-  background: rgba(255,255,255,0.05);
-  border: 2px solid rgba(255,255,255,0.08);
+/* ========== AI 分析结果卡片 ========== */
+.ai-analyzing {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: rgba(0,212,255,0.06);
+  border: 1px solid rgba(0,212,255,0.15);
   border-radius: 10px;
-  color: #aaa;
-  cursor: pointer;
-  transition: all 0.2s;
-  text-align: center;
+  margin-bottom: 16px;
+  color: #00d4ff;
   font-size: 0.88em;
 }
 
-.market-card:hover { border-color: rgba(0,212,255,0.3); color: #ccc; }
-.market-card.selected { border-color: #00d4ff; background: rgba(0,212,255,0.08); color: #00d4ff; }
+.spinner-sm {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(0,212,255,0.2);
+  border-top-color: #00d4ff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+.ai-analysis-card {
+  background: rgba(0,212,255,0.05);
+  border: 1px solid rgba(0,212,255,0.15);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+
+.ai-analysis-title {
+  font-size: 0.9em;
+  font-weight: 600;
+  color: #00d4ff;
+  margin-bottom: 10px;
+}
+
+.ai-analysis-row {
+  display: flex;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 0.85em;
+  color: #aaa;
+  line-height: 1.5;
+}
+
+.ai-analysis-row span:first-child {
+  color: #888;
+  flex-shrink: 0;
+  min-width: 72px;
+}
+
+.ai-analysis-row strong {
+  color: #eee;
+}
+
+.ai-sp-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ai-sp-tag {
+  background: rgba(0,212,255,0.12);
+  color: #00d4ff;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.82em;
+}
+
+.chip.chip-ai {
+  background: rgba(0,212,255,0.08);
+  border-color: rgba(0,212,255,0.2);
+  color: #80dfff;
+}
+
+.chip.chip-ai.selected {
+  background: rgba(0,212,255,0.2);
+  border-color: #00d4ff;
+  color: #00d4ff;
+}
+
+/* ========== 级联市场选择器（sinoclick风格） ========== */
+.cascade-market {
+  position: relative;
+  margin-bottom: 8px;
+}
+
+.cascade-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 10px;
+  color: #eee;
+  font-size: 0.9em;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.cascade-trigger:hover {
+  border-color: rgba(0,212,255,0.3);
+}
+
+.cascade-arrow {
+  color: #888;
+  font-size: 0.75em;
+}
+
+.cascade-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #1e2040;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 12px;
+  display: flex;
+  z-index: 100;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  max-height: 320px;
+}
+
+.cascade-left {
+  width: 45%;
+  border-right: 1px solid rgba(255,255,255,0.08);
+  overflow-y: auto;
+}
+
+.cascade-right {
+  width: 55%;
+  overflow-y: auto;
+}
+
+.cascade-section-title {
+  padding: 10px 14px;
+  font-size: 0.78em;
+  color: #888;
+  font-weight: 500;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.cascade-list {
+  padding: 4px 0;
+}
+
+.cascade-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 14px;
+  font-size: 0.86em;
+  color: #bbb;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.cascade-item:hover {
+  background: rgba(0,212,255,0.06);
+  color: #eee;
+}
+
+.cascade-item.active {
+  background: rgba(0,212,255,0.1);
+  color: #00d4ff;
+  font-weight: 500;
+}
+
+.cascade-item-arrow {
+  color: #666;
+  font-size: 0.9em;
+}
+
+.cascade-item.active .cascade-item-arrow {
+  color: #00d4ff;
+}
 
 .market-note {
   font-size: 0.8em;

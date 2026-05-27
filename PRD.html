@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>TikTok爆款复刻机 - 产品需求文档 PRD V2.0</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm 20mm 16mm; }
+  @media print {
+    .no-print { display: none !important; }
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif; color: #1a1a2e; line-height: 1.75; font-size: 12.5px; background: #fff; }
+
+  /* 封面 */
+  .cover { page-break-after: always; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 92vh; text-align: center; position: relative; }
+  .cover-badge { display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; padding: 6px 24px; border-radius: 20px; font-size: 11px; letter-spacing: 3px; margin-bottom: 40px; font-weight: 500; }
+  .cover h1 { font-size: 40px; font-weight: 800; background: linear-gradient(135deg, #667eea, #764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px; letter-spacing: -1px; }
+  .cover .subtitle { font-size: 18px; color: #555; margin-bottom: 60px; font-weight: 400; }
+  .cover .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 40px; text-align: left; font-size: 13px; color: #666; }
+  .cover .meta-grid .label { color: #999; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+  .cover .meta-grid .value { color: #333; font-weight: 500; }
+  .cover .divider { width: 60px; height: 3px; background: linear-gradient(135deg, #667eea, #764ba2); margin: 40px auto; border-radius: 2px; }
+
+  /* 目录 */
+  .toc { page-break-after: always; padding-top: 40px; }
+  .toc h2 { border: none; font-size: 22px; margin-bottom: 24px; }
+  .toc-section { font-weight: 600; font-size: 13px; padding: 10px 0 4px; color: #333; border-bottom: 1px solid #eee; }
+  .toc-item { display: flex; justify-content: space-between; padding: 5px 0 5px 20px; font-size: 12px; color: #555; }
+  .toc-item.sub { padding-left: 40px; color: #777; font-size: 11.5px; }
+
+  /* 标题 */
+  h2 { font-size: 18px; font-weight: 700; margin: 36px 0 16px; padding-bottom: 8px; border-bottom: 2px solid #667eea; color: #1a1a2e; }
+  h3 { font-size: 14px; font-weight: 600; margin: 24px 0 10px; color: #333; }
+  h4 { font-size: 12.5px; font-weight: 600; margin: 16px 0 6px; color: #444; }
+  p { margin: 6px 0; }
+
+  /* 表格 */
+  table { width: 100%; border-collapse: collapse; margin: 10px 0 18px; font-size: 11.5px; }
+  th { background: #f0f2ff; font-weight: 600; text-align: left; padding: 7px 10px; border: 1px solid #ddd; color: #333; font-size: 11px; }
+  td { padding: 7px 10px; border: 1px solid #e5e5e5; vertical-align: top; line-height: 1.6; }
+
+  /* 标签 */
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 10px; font-weight: 600; letter-spacing: 0.3px; }
+  .tag-p0 { background: #fde8e8; color: #c62828; }
+  .tag-p1 { background: #fff3e0; color: #e65100; }
+  .tag-p2 { background: #e3f2fd; color: #1565c0; }
+  .tag-done { background: #e8f5e9; color: #2e7d32; }
+  .tag-wip { background: #fff8e1; color: #f57f17; }
+  .tag-plan { background: #f3e5f5; color: #7b1fa2; }
+
+  /* 流程框 */
+  .flow-box { background: #fafbff; border: 1px solid #e0e4ff; border-radius: 10px; padding: 20px; margin: 14px 0; }
+  .flow-steps { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+  .flow-step { background: #fff; border: 1.5px solid #d0d5ff; border-radius: 8px; padding: 8px 14px; font-size: 11.5px; text-align: center; min-width: 72px; }
+  .flow-step.primary { border-color: #667eea; background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; font-weight: 600; }
+  .flow-step.input { border-color: #43a047; background: #e8f5e9; color: #2e7d32; }
+  .flow-step.output { border-color: #e65100; background: #fff3e0; color: #e65100; }
+  .flow-arrow { font-size: 14px; color: #999; }
+
+  /* 架构卡片 */
+  .arch-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 14px 0; }
+  .arch-card { border: 1px solid #e0e4ff; border-radius: 8px; padding: 14px; background: #fafbff; }
+  .arch-card h4 { margin: 0 0 6px; font-size: 13px; color: #333; }
+  .arch-card .tech { font-size: 10.5px; color: #666; line-height: 1.6; }
+  .arch-label { font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 4px; }
+
+  /* API 路径 */
+  .api-path { font-family: "SF Mono", "Fira Code", Consolas, monospace; font-size: 11px; background: #f5f5ff; padding: 2px 6px; border-radius: 3px; color: #667eea; }
+
+  /* 高亮框 */
+  .highlight-box { background: #f0f4ff; border-left: 3px solid #667eea; padding: 12px 16px; margin: 12px 0; border-radius: 0 6px 6px 0; font-size: 12px; }
+  .highlight-box.orange { background: #fff8e1; border-left-color: #f57f17; }
+  .highlight-box.green { background: #e8f5e9; border-left-color: #2e7d32; }
+
+  /* 分页 */
+  .section-break { page-break-before: always; }
+
+  /* 页脚 */
+  .footer { text-align: center; color: #bbb; font-size: 10px; margin-top: 40px; padding-top: 16px; border-top: 1px solid #eee; }
+
+  /* 里程碑时间线 */
+  .milestone { display: flex; gap: 16px; margin: 10px 0; }
+  .milestone-card { flex: 1; border: 1px solid #e0e0e0; border-radius: 8px; padding: 14px; }
+  .milestone-card h4 { margin: 0 0 6px; font-size: 13px; }
+  .milestone-card .version { display: inline-block; background: #667eea; color: #fff; padding: 2px 10px; border-radius: 10px; font-size: 10px; font-weight: 600; margin-bottom: 8px; }
+  .milestone-card .version.v2 { background: #f57f17; }
+  .milestone-card .version.v3 { background: #c62828; }
+  .milestone-card ul { margin: 4px 0 0 16px; font-size: 11px; color: #555; }
+  .milestone-card li { margin: 3px 0; }
+
+  /* 平台标签 */
+  .platform-group { margin: 12px 0; }
+  .platform-tag { display: inline-block; padding: 4px 12px; border-radius: 14px; font-size: 11px; margin: 3px 4px; font-weight: 500; }
+  .platform-ecom { background: #fff3e0; color: #e65100; border: 1px solid #ffe0b2; }
+  .platform-social { background: #fce4ec; color: #c62828; border: 1px solid #f8bbd0; }
+  .platform-global { background: #e3f2fd; color: #1565c0; border: 1px solid #bbdefb; }
+  .platform-video { background: #f3e5f5; color: #7b1fa2; border: 1px solid #e1bee7; }
+</style>
+</head>
+<body>
+
+<!-- ==================== 封面 ==================== -->
+<div class="cover">
+  <div class="cover-badge">PRODUCT REQUIREMENTS DOCUMENT</div>
+  <h1>TikTok爆款复刻机</h1>
+  <div class="subtitle">上传对标视频，AI一键生成同款提示词</div>
+  <div class="divider"></div>
+  <div class="meta-grid">
+    <div><div class="label">文档版本</div><div class="value">V2.0</div></div>
+    <div><div class="label">撰写日期</div><div class="value">2026-05-26</div></div>
+    <div><div class="label">产品负责人</div><div class="value">Maggie</div></div>
+    <div><div class="label">文档状态</div><div class="value">已上线 / 持续迭代</div></div>
+    <div><div class="label">线上地址</div><div class="value">https://advideo-imitate.netlify.app</div></div>
+    <div><div class="label">代码仓库</div><div class="value">GitHub: xiaozhideyizi/tts_image-to-video_prompt_imitate-pop-video</div></div>
+  </div>
+</div>
+
+<!-- ==================== 目录 ==================== -->
+<div class="toc">
+  <h2>目录</h2>
+  <div class="toc-section">1. 产品概述</div>
+  <div class="toc-item sub">1.1 产品定位与核心场景</div>
+  <div class="toc-item sub">1.2 目标用户画像</div>
+  <div class="toc-item sub">1.3 核心价值主张</div>
+  <div class="toc-section">2. 核心功能流程</div>
+  <div class="toc-item sub">2.1 爆款复刻主流程</div>
+  <div class="toc-item sub">2.2 AI 双模式引擎</div>
+  <div class="toc-item sub">2.3 生成输出结构</div>
+  <div class="toc-section">3. 系统架构</div>
+  <div class="toc-item sub">3.1 技术架构</div>
+  <div class="toc-item sub">3.2 部署架构</div>
+  <div class="toc-item sub">3.3 数据流</div>
+  <div class="toc-section">4. 功能需求 — V1.0（已上线）</div>
+  <div class="toc-item sub">4.1 用户认证模块</div>
+  <div class="toc-item sub">4.2 提示词生成模块</div>
+  <div class="toc-item sub">4.3 历史记录模块</div>
+  <div class="toc-item sub">4.4 分享模块</div>
+  <div class="toc-section">5. 功能需求 — V2.0（规划中）</div>
+  <div class="toc-item sub">5.1 视频上传与解析</div>
+  <div class="toc-item sub">5.2 产品图片上传</div>
+  <div class="toc-item sub">5.3 多平台适配</div>
+  <div class="toc-item sub">5.4 积分体系</div>
+  <div class="toc-item sub">5.5 会员体系</div>
+  <div class="toc-section">6. 功能需求 — V3.0（远期规划）</div>
+  <div class="toc-item sub">6.1 视频生成模型接入</div>
+  <div class="toc-item sub">6.2 多模型选择</div>
+  <div class="toc-section">7. API 接口定义</div>
+  <div class="toc-section">8. 数据模型</div>
+  <div class="toc-section">9. 非功能需求</div>
+  <div class="toc-section">10. 里程碑与版本规划</div>
+</div>
+
+<!-- ==================== 1. 产品概述 ==================== -->
+<h2>1. 产品概述</h2>
+
+<h3>1.1 产品定位与核心场景</h3>
+<p><strong>TikTok爆款复刻机</strong>是一款面向短视频创作者和电商运营的 AI 提示词生成工具。核心能力是<strong>复刻爆款视频</strong>——用户上传一条对标爆款视频和自己的产品图片，系统通过 AI 大模型分析视频内容与产品特征，自动生成适配用户产品的视频提示词（Prompt），帮助用户快速产出同款风格的带货/种草短视频。</p>
+
+<div class="highlight-box">
+  <strong>核心公式</strong>：对标爆款视频 + 用户产品图片 → AI 分析 → 适配用户产品的爆款提示词
+</div>
+
+<p><strong>核心场景</strong>：</p>
+<table>
+  <tr><th>场景</th><th>用户行为</th><th>系统输出</th></tr>
+  <tr><td>爆款复刻</td><td>上传对标视频 + 产品图片</td><td>生成适配产品的同款风格视频提示词</td></tr>
+  <tr><td>快速起量</td><td>输入产品名称和卖点</td><td>AI 生成多组结构化提示词</td></tr>
+  <tr><td>多平台分发</td><td>选择目标平台</td><td>生成符合平台调性的差异化提示词</td></tr>
+  <tr><td>团队协作</td><td>分享提示词链接</td><td>团队成员查看和复用</td></tr>
+</table>
+
+<h3>1.2 目标用户画像</h3>
+<table>
+  <tr><th>用户画像</th><th>典型场景</th><th>核心痛点</th><th>期望价值</th></tr>
+  <tr><td>电商运营</td><td>拼多多/京东/淘系店铺做带货视频</td><td>不会写提示词，视频效果差</td><td>一键复刻爆款，降低内容制作门槛</td></tr>
+  <tr><td>短视频博主</td><td>抖音/小红书种草视频</td><td>创作灵感枯竭，产出效率低</td><td>快速产出多组高质量创意</td></tr>
+  <tr><td>MCN 机构</td><td>为多品牌批量生产内容</td><td>人力成本高，风格难统一</td><td>批量生成 + 团队共享</td></tr>
+  <tr><td>品牌方</td><td>视频号/B站品牌宣传</td><td>外包贵，自研难</td><td>低成本自研内容生产工具</td></tr>
+</table>
+
+<h3>1.3 核心价值主张</h3>
+<div class="highlight-box green">
+  <strong>爆款复刻</strong>：不再从零创作——找到对标视频，上传产品图片，AI 自动分析并输出适配你产品的提示词，让"爆款可复制"。<br>
+  <strong>双引擎保障</strong>：AI 模式优先生成高质量创意，AI 不可用时自动降级到本地规则引擎，100% 可用。<br>
+  <strong>多平台覆盖</strong>：一套产品信息，适配国内电商 + 社媒 + 海外平台，省去逐平台调整成本。
+</div>
+
+<!-- ==================== 2. 核心功能流程 ==================== -->
+<h2 class="section-break">2. 核心功能流程</h2>
+
+<h3>2.1 爆款复刻主流程</h3>
+<div class="flow-box">
+  <div class="flow-steps">
+    <div class="flow-step input">上传对标视频</div>
+    <span class="flow-arrow">+</span>
+    <div class="flow-step input">上传产品图片</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step primary">AI 分析引擎</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step output">适配产品的爆款提示词</div>
+  </div>
+  <div style="margin-top:12px;font-size:11.5px;color:#666;">
+    <p><strong>Step 1 — 视频解析</strong>：AI 提取对标视频的关键帧、视觉风格、运镜节奏、文案结构、BGM 风格</p>
+    <p><strong>Step 2 — 产品适配</strong>：结合产品图片特征（外观、场景、卖点），将爆款元素映射到用户产品</p>
+    <p><strong>Step 3 — 提示词生成</strong>：输出结构化视频提示词，包含画面描述、运镜指令、节奏安排、音效方案</p>
+  </div>
+</div>
+
+<h3>2.2 AI 双模式引擎</h3>
+<table>
+  <tr><th>模式</th><th>触发条件</th><th>能力</th><th>响应时间</th></tr>
+  <tr><td><strong>AI 模式</strong>（主）</td><td>API Key 可用 + 用户开启 AI</td><td>深度理解视频内容，创意性强，支持多语言</td><td>3-10s</td></tr>
+  <tr><td><strong>本地规则</strong>（备）</td><td>AI 不可用或用户关闭 AI</td><td>基于动态起手库 + 随机组合，保证基础可用</td><td>&lt;1s</td></tr>
+</table>
+
+<h3>2.3 生成输出结构</h3>
+<p>每条提示词包含以下结构化字段：</p>
+<table>
+  <tr><th>字段</th><th>类型</th><th>说明</th></tr>
+  <tr><td>finalPrompt</td><td>Text</td><td>完整提示词文本，可直接输入视频生成模型</td></tr>
+  <tr><td>dynamicStrategy</td><td>Text</td><td>去静止策略：镜头运动 + 物理特效 + 动作指令</td></tr>
+  <tr><td>audioPlan</td><td>Text</td><td>视听方案：口播配音方向 + BGM 风格</td></tr>
+  <tr><td>audit</td><td>Text</td><td>素材审计：图片/视频可用性检查与建议</td></tr>
+  <tr><td>sections</td><td>JSON</td><td>分时段内容：0-4s 动态起手 / 4-8s 产品展示 / 8-12s 转化结尾</td></tr>
+</table>
+
+<!-- ==================== 3. 系统架构 ==================== -->
+<h2 class="section-break">3. 系统架构</h2>
+
+<h3>3.1 技术架构</h3>
+<div class="arch-grid">
+  <div class="arch-card">
+    <div class="arch-label">Frontend</div>
+    <h4>React 18 + Vite</h4>
+    <div class="tech">SPA 单页应用 · React Router 路由<br>Axios HTTP · Context 状态管理<br>响应式移动端适配 · Netlify CDN</div>
+  </div>
+  <div class="arch-card">
+    <div class="arch-label">Backend</div>
+    <h4>Python FastAPI</h4>
+    <div class="tech">异步高性能 API · SQLAlchemy async ORM<br>JWT 鉴权 · 智谱 GLM-4-flash AI<br>本地规则降级引擎 · 视频解析（规划中）</div>
+  </div>
+  <div class="arch-card">
+    <div class="arch-label">Database</div>
+    <h4>PostgreSQL</h4>
+    <div class="tech">asyncpg 异步驱动 · SQLite 开发环境<br>自动建表迁移 · Railway 托管 PG<br>对象存储（规划中：S3/R2）</div>
+  </div>
+</div>
+
+<h3>3.2 部署架构</h3>
+<table>
+  <tr><th>服务</th><th>平台</th><th>域名/地址</th><th>说明</th></tr>
+  <tr><td>前端</td><td>Netlify</td><td>advideo-imitate.netlify.app</td><td>自动构建 + CDN + HTTPS</td></tr>
+  <tr><td>后端 API</td><td>Railway</td><td>incredible-alignment-production-4ba5.up.railway.app</td><td>Nixpacks 构建 + 容器运行</td></tr>
+  <tr><td>PostgreSQL</td><td>Railway</td><td>内部网络</td><td>托管数据库，自动备份</td></tr>
+  <tr><td>代码仓库</td><td>GitHub</td><td>xiaozhideyizi/tts_image-to-video_prompt_imitate-pop-video</td><td>Push 自动触发部署</td></tr>
+</table>
+
+<h3>3.3 数据流</h3>
+<div class="flow-box">
+  <div class="flow-steps">
+    <div class="flow-step input">用户输入</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">JWT 鉴权</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step primary">AI/本地双引擎</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">PostgreSQL</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step output">结构化提示词</div>
+  </div>
+  <div style="margin-top:8px;font-size:11px;color:#888;text-align:center;">AI 优先 → 失败降级本地规则 → 结果云存储 → 支持公开分享</div>
+</div>
+
+<!-- ==================== 4. V1.0 功能需求（已上线） ==================== -->
+<h2 class="section-break">4. 功能需求 — V1.0（已上线）</h2>
+
+<h3>4.1 用户认证模块</h3>
+<table>
+  <tr><th>功能</th><th>优先级</th><th>状态</th><th>描述</th></tr>
+  <tr><td>邮箱注册</td><td><span class="tag tag-p0">P0</span></td><td><span class="tag tag-done">已完成</span></td><td>邮箱 + 用户名 + 密码注册，bcrypt 加密存储</td></tr>
+  <tr><td>邮箱登录</td><td><span class="tag tag-p0">P0</span></td><td><span class="tag tag-done">已完成</span></td><td>OAuth2 Password Flow，JWT Token（7天有效期）</td></tr>
+  <tr><td>Token 鉴权</td><td><span class="tag tag-p0">P0</span></td><td><span class="tag tag-done">已完成</span></td><td>所有写操作 Bearer Token，自动 401 拦截</td></tr>
+  <tr><td>用户信息</td><td><span class="tag tag-p1">P1</span></td><td><span class="tag tag-done">已完成</span></td><td>GET /api/auth/me 获取当前用户信息</td></tr>
+</table>
+
+<h3>4.2 提示词生成模块</h3>
+<table>
+  <tr><th>功能</th><th>优先级</th><th>状态</th><th>描述</th></tr>
+  <tr><td>AI 智能生成</td><td><span class="tag tag-p0">P0</span></td><td><span class="tag tag-done">已完成</span></td><td>调用智谱 GLM-4-flash，按时间段生成结构化提示词</td></tr>
+  <tr><td>本地规则生成</td><td><span class="tag tag-p0">P0</span></td><td><span class="tag tag-done">已完成</span></td><td>AI 不可用时降级，动态起手库随机组合</td></tr>
+  <tr><td>参数配置</td><td><span class="tag tag-p0">P0</span></td><td><span class="tag tag-done">已完成</span></td><td>商品名称、目标市场（7国）、目标语言（5种）、卖点、口播文案、BGM 风格</td></tr>
+  <tr><td>批量生成</td><td><span class="tag tag-p1">P1</span></td><td><span class="tag tag-done">已完成</span></td><td>1-5 条批量生成，滑块控制数量</td></tr>
+  <tr><td>一键复制</td><td><span class="tag tag-p1">P1</span></td><td><span class="tag tag-done">已完成</span></td><td>复制最终提示词到剪贴板</td></tr>
+</table>
+
+<h3>4.3 历史记录模块</h3>
+<table>
+  <tr><th>功能</th><th>优先级</th><th>状态</th><th>描述</th></tr>
+  <tr><td>历史列表</td><td><span class="tag tag-p0">P0</span></td><td><span class="tag tag-done">已完成</span></td><td>分页查询，时间倒序，仅展示当前用户数据</td></tr>
+  <tr><td>详情展开</td><td><span class="tag tag-p1">P1</span></td><td><span class="tag tag-done">已完成</span></td><td>展开查看完整提示词内容</td></tr>
+  <tr><td>删除记录</td><td><span class="tag tag-p1">P1</span></td><td><span class="tag tag-done">已完成</span></td><td>仅可删除自己的记录</td></tr>
+</table>
+
+<h3>4.4 分享模块</h3>
+<table>
+  <tr><th>功能</th><th>优先级</th><th>状态</th><th>描述</th></tr>
+  <tr><td>生成分享链接</td><td><span class="tag tag-p1">P1</span></td><td><span class="tag tag-done">已完成</span></td><td>生成唯一 token URL，无需登录可查看</td></tr>
+  <tr><td>分享页展示</td><td><span class="tag tag-p1">P1</span></td><td><span class="tag tag-done">已完成</span></td><td>公开页面展示提示词内容</td></tr>
+</table>
+
+<!-- ==================== 5. V2.0 功能需求（规划中） ==================== -->
+<h2 class="section-break">5. 功能需求 — V2.0（规划中）</h2>
+
+<div class="highlight-box orange">
+  <strong>V2.0 核心升级方向</strong>：从"文字输入生成提示词"升级为"视频+图片输入 → AI 爆款复刻"，加入多平台适配、积分体系和会员体系，构建商业化闭环。
+</div>
+
+<h3>5.1 视频上传与解析</h3>
+<table>
+  <tr><th>功能</th><th>优先级</th><th>描述</th></tr>
+  <tr><td>对标视频上传</td><td><span class="tag tag-p0">P0</span></td><td>支持 MP4/MOV/AVI 格式，最大 200MB，拖拽上传</td></tr>
+  <tr><td>关键帧提取</td><td><span class="tag tag-p0">P0</span></td><td>自动提取视频关键帧（5-10帧），用于 AI 分析画面风格</td></tr>
+  <tr><td>视频内容分析</td><td><span class="tag tag-p0">P0</span></td><td>AI 识别运镜方式、节奏、色调、文案结构、BGM 风格</td></tr>
+  <tr><td>视频预览</td><td><span class="tag tag-p1">P1</span></td><td>上传后可在线预览，标注关键帧位置</td></tr>
+</table>
+
+<h3>5.2 产品图片上传</h3>
+<table>
+  <tr><th>功能</th><th>优先级</th><th>描述</th></tr>
+  <tr><td>产品图片上传</td><td><span class="tag tag-p0">P0</span></td><td>支持 JPG/PNG/WebP，最多 5 张，单张最大 10MB</td></tr>
+  <tr><td>产品特征识别</td><td><span class="tag tag-p0">P0</span></td><td>AI 识别产品外观、颜色、使用场景，用于提示词适配</td></tr>
+  <tr><td>图片裁剪标注</td><td><span class="tag tag-p2">P2</span></td><td>用户可标注产品主体区域，提高识别精度</td></tr>
+</table>
+
+<h3>5.3 多平台适配</h3>
+<p>生成提示词时，用户选择目标平台，系统自动适配该平台的内容调性、时长规范和风格偏好：</p>
+
+<div class="platform-group">
+  <strong>国内电商平台</strong>：
+  <span class="platform-tag platform-ecom">拼多多</span>
+  <span class="platform-tag platform-ecom">京东</span>
+  <span class="platform-tag platform-ecom">淘系（淘宝/天猫）</span>
+  <span class="platform-tag platform-ecom">抖音电商</span>
+</div>
+<div class="platform-group">
+  <strong>国内社媒平台</strong>：
+  <span class="platform-tag platform-social">小红书</span>
+  <span class="platform-tag platform-social">抖音</span>
+  <span class="platform-tag platform-social">视频号</span>
+  <span class="platform-tag platform-social">B站</span>
+</div>
+<div class="platform-group">
+  <strong>海外平台</strong>：
+  <span class="platform-tag platform-global">TikTok</span>
+  <span class="platform-tag platform-global">Instagram Reels</span>
+  <span class="platform-tag platform-global">YouTube Shorts</span>
+</div>
+
+<table>
+  <tr><th>平台</th><th>适配要点</th><th>典型时长</th><th>内容调性</th></tr>
+  <tr><td>拼多多</td><td>价格敏感、促销话术、工厂/仓库场景</td><td>15-30s</td><td>接地气、实惠感</td></tr>
+  <tr><td>京东</td><td>品质背书、参数对比、品牌调性</td><td>15-45s</td><td>专业、可信赖</td></tr>
+  <tr><td>淘系</td><td>种草风格、场景化展示、测评对比</td><td>30-60s</td><td>精致、种草感</td></tr>
+  <tr><td>抖音电商</td><td>强节奏、爆款 BGM、前 3 秒钩子</td><td>15-60s</td><td>快节奏、情绪驱动</td></tr>
+  <tr><td>小红书</td><td>生活化场景、图文视频化、真实感</td><td>15-60s</td><td>精致、生活化、真实</td></tr>
+  <tr><td>视频号</td><td>社交传播、情感共鸣、朋友圈适配</td><td>15-60s</td><td>温情、社交化</td></tr>
+  <tr><td>B站</td><td>硬核测评、梗文化、UP主风格</td><td>60-300s</td><td>专业、有趣、深度</td></tr>
+  <tr><td>TikTok</td><td>Hook 3 秒、挑战赛风格、全球调性</td><td>15-60s</td><td>潮流、病毒式传播</td></tr>
+</table>
+
+<h3>5.4 积分体系</h3>
+<table>
+  <tr><th>功能</th><th>优先级</th><th>描述</th></tr>
+  <tr><td>积分账户</td><td><span class="tag tag-p1">P1</span></td><td>每位用户拥有积分账户，注册赠送初始积分</td></tr>
+  <tr><td>积分消耗</td><td><span class="tag tag-p1">P1</span></td><td>AI 生成消耗积分（本地规则免费），视频解析额外消耗</td></tr>
+  <tr><td>积分获取</td><td><span class="tag tag-p1">P1</span></td><td>每日签到、分享赚积分、邀请好友、购买充值</td></tr>
+  <tr><td>积分明细</td><td><span class="tag tag-p2">P2</span></td><td>查看积分收支记录，含类型、时间、余额变动</td></tr>
+</table>
+
+<div class="highlight-box">
+  <strong>积分定价参考</strong>：<br>
+  · 本地规则生成：免费<br>
+  · AI 生成提示词：1 积分/条<br>
+  · 视频解析 + AI 生成：5 积分/次<br>
+  · 新用户注册赠送：20 积分<br>
+  · 每日签到：1-3 积分（连续签到递增）<br>
+  · 充值：¥0.1/积分（暂定）
+</div>
+
+<h3>5.5 会员体系</h3>
+<table>
+  <tr><th>等级</th><th>月费</th><th>权益</th></tr>
+  <tr><td><strong>免费版</strong></td><td>¥0</td><td>本地规则无限次 + AI 生成 5 次/天 + 视频解析 1 次/天</td></tr>
+  <tr><td><strong>专业版</strong></td><td>¥29/月</td><td>AI 生成无限次 + 视频解析 20 次/天 + 多平台适配 + 历史导出</td></tr>
+  <tr><td><strong>团队版</strong></td><td>¥99/月</td><td>专业版全部权益 + 5 人协作 + 共享工作区 + API 接口 + 优先客服</td></tr>
+</table>
+
+<!-- ==================== 6. V3.0 功能需求（远期规划） ==================== -->
+<h2 class="section-break">6. 功能需求 — V3.0（远期规划）</h2>
+
+<div class="highlight-box orange">
+  <strong>V3.0 核心升级方向</strong>：从"生成提示词"升级为"生成视频"——直接接入视频生成大模型，实现从爆款视频到同款视频的全链路闭环。
+</div>
+
+<h3>6.1 视频生成模型接入</h3>
+<p>接入以下视频生成模型，用户可直接在平台内完成"对标视频 → 产品视频"的全流程：</p>
+
+<div class="platform-group">
+  <strong>视频生成模型</strong>：
+  <span class="platform-tag platform-video">Kling (快手可灵)</span>
+  <span class="platform-tag platform-video">Seedance 2.0 (字节)</span>
+  <span class="platform-tag platform-video">Google Veo/Omni</span>
+  <span class="platform-tag platform-video">Runway Gen-3</span>
+</div>
+
+<table>
+  <tr><th>模型</th><th>能力</th><th>适用场景</th><th>预计接入难度</th></tr>
+  <tr><td>Kling (快手可灵)</td><td>国产领先视频生成，中文理解好</td><td>国内电商/社媒视频</td><td>中（API 待公测）</td></tr>
+  <tr><td>Seedance 2.0 (字节)</td><td>抖音生态深度适配，短视频优化</td><td>抖音/西瓜带货视频</td><td>中（内部 API）</td></tr>
+  <tr><td>Google Veo/Omni</td><td>多模态理解，全球调性</td><td>TikTok/海外平台视频</td><td>高（需翻墙+海外账号）</td></tr>
+  <tr><td>Runway Gen-3</td><td>高质量视频生成，风格迁移</td><td>高品质品牌视频</td><td>低（API 已开放）</td></tr>
+</table>
+
+<h3>6.2 多模型选择</h3>
+<table>
+  <tr><th>功能</th><th>优先级</th><th>描述</th></tr>
+  <tr><td>模型选择器</td><td><span class="tag tag-p1">P1</span></td><td>用户在生成时可选择目标视频模型，提示词自动适配模型格式</td></tr>
+  <tr><td>模型对比</td><td><span class="tag tag-p2">P2</span></td><td>同一条提示词在多个模型下的效果预览对比</td></tr>
+  <tr><td>提示词格式适配</td><td><span class="tag tag-p0">P0</span></td><td>不同模型提示词格式不同（Kling vs Runway），系统自动转换</td></tr>
+  <tr><td>一键生成视频</td><td><span class="tag tag-p1">P1</span></td><td>提示词生成后可直接调用视频模型，产出成品视频</td></tr>
+</table>
+
+<!-- ==================== 7. API 接口定义 ==================== -->
+<h2 class="section-break">7. API 接口定义</h2>
+
+<h3>认证接口</h3>
+<table>
+  <tr><th>方法</th><th>路径</th><th>说明</th><th>鉴权</th></tr>
+  <tr><td>POST</td><td><span class="api-path">/api/auth/register</span></td><td>用户注册，返回 JWT Token</td><td>否</td></tr>
+  <tr><td>POST</td><td><span class="api-path">/api/auth/token</span></td><td>用户登录（OAuth2 表单）</td><td>否</td></tr>
+  <tr><td>GET</td><td><span class="api-path">/api/auth/me</span></td><td>获取当前用户信息</td><td>是</td></tr>
+</table>
+
+<h3>提示词接口</h3>
+<table>
+  <tr><th>方法</th><th>路径</th><th>说明</th><th>鉴权</th></tr>
+  <tr><td>POST</td><td><span class="api-path">/api/prompts/generate</span></td><td>生成提示词（AI/本地双模式）</td><td>是</td></tr>
+  <tr><td>GET</td><td><span class="api-path">/api/prompts/history</span></td><td>查询历史记录（分页）</td><td>是</td></tr>
+  <tr><td>POST</td><td><span class="api-path">/api/prompts/history/{id}/share</span></td><td>生成分享链接</td><td>是</td></tr>
+  <tr><td>GET</td><td><span class="api-path">/api/prompts/share/{token}</span></td><td>查看分享内容</td><td>否</td></tr>
+  <tr><td>DELETE</td><td><span class="api-path">/api/prompts/history/{id}</span></td><td>删除历史记录</td><td>是</td></tr>
+</table>
+
+<h3>V2.0 新增接口（规划）</h3>
+<table>
+  <tr><th>方法</th><th>路径</th><th>说明</th><th>鉴权</th></tr>
+  <tr><td>POST</td><td><span class="api-path">/api/upload/video</span></td><td>上传对标视频，返回关键帧和分析结果</td><td>是</td></tr>
+  <tr><td>POST</td><td><span class="api-path">/api/upload/images</span></td><td>上传产品图片，返回特征描述</td><td>是</td></tr>
+  <tr><td>POST</td><td><span class="api-path">/api/prompts/replicate</span></td><td>爆款复刻：视频+图片 → 适配提示词</td><td>是</td></tr>
+  <tr><td>GET</td><td><span class="api-path">/api/credits/balance</span></td><td>查询积分余额</td><td>是</td></tr>
+  <tr><td>POST</td><td><span class="api-path">/api/credits/consume</span></td><td>积分消耗记录</td><td>是</td></tr>
+  <tr><td>GET</td><td><span class="api-path">/api/subscription/status</span></td><td>查询会员状态</td><td>是</td></tr>
+</table>
+
+<h3>系统接口</h3>
+<table>
+  <tr><th>方法</th><th>路径</th><th>说明</th><th>鉴权</th></tr>
+  <tr><td>GET</td><td><span class="api-path">/health</span></td><td>健康检查</td><td>否</td></tr>
+  <tr><td>GET</td><td><span class="api-path">/</span></td><td>API 信息</td><td>否</td></tr>
+  <tr><td>GET</td><td><span class="api-path">/docs</span></td><td>Swagger 文档</td><td>否</td></tr>
+</table>
+
+<!-- ==================== 8. 数据模型 ==================== -->
+<h2 class="section-break">8. 数据模型</h2>
+
+<h3>User 用户表</h3>
+<table>
+  <tr><th>字段</th><th>类型</th><th>约束</th><th>说明</th></tr>
+  <tr><td>id</td><td>Integer</td><td>PK, Auto</td><td>用户 ID</td></tr>
+  <tr><td>email</td><td>String(255)</td><td>Unique, Not Null</td><td>登录邮箱</td></tr>
+  <tr><td>username</td><td>String(100)</td><td>Not Null</td><td>用户昵称</td></tr>
+  <tr><td>hashed_password</td><td>String(255)</td><td>Not Null</td><td>bcrypt 加密密码</td></tr>
+  <tr><td>is_active</td><td>Boolean</td><td>Default True</td><td>账号状态</td></tr>
+  <tr><td>credits</td><td>Integer</td><td>Default 20</td><td>积分余额（V2.0）</td></tr>
+  <tr><td>membership</td><td>String(20)</td><td>Default "free"</td><td>会员等级：free/pro/team（V2.0）</td></tr>
+  <tr><td>created_at</td><td>DateTime</td><td>Auto</td><td>注册时间</td></tr>
+</table>
+
+<h3>PromptHistory 提示词历史表</h3>
+<table>
+  <tr><th>字段</th><th>类型</th><th>约束</th><th>说明</th></tr>
+  <tr><td>id</td><td>Integer</td><td>PK, Auto</td><td>记录 ID</td></tr>
+  <tr><td>user_id</td><td>Integer</td><td>FK → User.id</td><td>所属用户</td></tr>
+  <tr><td>product_name</td><td>String(255)</td><td>Not Null</td><td>商品名称</td></tr>
+  <tr><td>target_market</td><td>String(50)</td><td>Default "china"</td><td>目标市场</td></tr>
+  <tr><td>target_language</td><td>String(50)</td><td>Default "chinese"</td><td>目标语言</td></tr>
+  <tr><td>target_platform</td><td>String(50)</td><td>Default "tiktok"</td><td>目标平台（V2.0 新增）</td></tr>
+  <tr><td>selling_points</td><td>Text</td><td></td><td>核心卖点</td></tr>
+  <tr><td>video_script</td><td>Text</td><td></td><td>口播文案</td></tr>
+  <tr><td>bgm_style</td><td>String(255)</td><td></td><td>BGM 风格</td></tr>
+  <tr><td>prompts_json</td><td>Text</td><td>Not Null</td><td>生成结果 JSON</td></tr>
+  <tr><td>video_url</td><td>String(500)</td><td>Nullable</td><td>对标视频存储地址（V2.0）</td></tr>
+  <tr><td>image_urls</td><td>Text</td><td>Nullable</td><td>产品图片 JSON 数组（V2.0）</td></tr>
+  <tr><td>credits_cost</td><td>Integer</td><td>Default 0</td><td>消耗积分数（V2.0）</td></tr>
+  <tr><td>share_token</td><td>String(64)</td><td>Unique, Nullable</td><td>分享 token</td></tr>
+  <tr><td>created_at</td><td>DateTime</td><td>Auto</td><td>生成时间</td></tr>
+</table>
+
+<h3>CreditLog 积分流水表（V2.0 新增）</h3>
+<table>
+  <tr><th>字段</th><th>类型</th><th>约束</th><th>说明</th></tr>
+  <tr><td>id</td><td>Integer</td><td>PK, Auto</td><td>流水 ID</td></tr>
+  <tr><td>user_id</td><td>Integer</td><td>FK → User.id</td><td>所属用户</td></tr>
+  <tr><td>type</td><td>String(20)</td><td>Not Null</td><td>类型：consume/earn/recharge/gift</td></tr>
+  <tr><td>amount</td><td>Integer</td><td>Not Null</td><td>变动数量（正=收入，负=支出）</td></tr>
+  <tr><td>balance_after</td><td>Integer</td><td>Not Null</td><td>变动后余额</td></tr>
+  <tr><td>description</td><td>String(255)</td><td></td><td>描述（如"AI生成提示词 x3"）</td></tr>
+  <tr><td>created_at</td><td>DateTime</td><td>Auto</td><td>记录时间</td></tr>
+</table>
+
+<!-- ==================== 9. 非功能需求 ==================== -->
+<h2 class="section-break">9. 非功能需求</h2>
+
+<table>
+  <tr><th>维度</th><th>要求</th><th>当前方案</th></tr>
+  <tr><td>可用性</td><td>99.9% 服务可用</td><td>AI/本地双模式降级保证</td></tr>
+  <tr><td>性能</td><td>API &lt; 2s（本地）/ &lt; 10s（AI）/ &lt; 30s（视频解析）</td><td>FastAPI 异步 + asyncpg</td></tr>
+  <tr><td>安全</td><td>密码不可逆，Token 7 天有效期</td><td>bcrypt + JWT (HS256)</td></tr>
+  <tr><td>数据隔离</td><td>用户只能访问自己的数据</td><td>API 层 user_id 过滤</td></tr>
+  <tr><td>CORS</td><td>仅允许指定前端域名</td><td>白名单机制</td></tr>
+  <tr><td>HTTPS</td><td>全链路加密传输</td><td>Netlify/Railway 自动 HTTPS</td></tr>
+  <tr><td>文件存储</td><td>视频/图片安全存储，CDN 加速</td><td>规划 S3/R2 对象存储</td></tr>
+  <tr><td>移动端</td><td>响应式布局，手机可用</td><td>CSS 响应式适配</td></tr>
+  <tr><td>支付</td><td>积分充值、会员订阅</td><td>规划接入微信/支付宝</td></tr>
+</table>
+
+<!-- ==================== 10. 里程碑与版本规划 ==================== -->
+<h2>10. 里程碑与版本规划</h2>
+
+<div class="milestone">
+  <div class="milestone-card">
+    <div class="version">V1.0</div>
+    <h4>基础版 · 已上线</h4>
+    <ul>
+      <li>邮箱注册/登录 + JWT 鉴权</li>
+      <li>AI（智谱 GLM）+ 本地规则双引擎</li>
+      <li>提示词生成（文字输入模式）</li>
+      <li>历史记录云存储 + 分享链接</li>
+    </ul>
+  </div>
+  <div class="milestone-card">
+    <div class="version v2">V2.0</div>
+    <h4>爆款复刻版 · 规划中</h4>
+    <ul>
+      <li>对标视频上传 + 关键帧提取</li>
+      <li>产品图片上传 + AI 特征识别</li>
+      <li>多平台适配（电商+社媒+海外）</li>
+      <li>积分体系 + 会员体系</li>
+      <li>爆款复刻主流程</li>
+    </ul>
+  </div>
+  <div class="milestone-card">
+    <div class="version v3">V3.0</div>
+    <h4>视频生成版 · 远期规划</h4>
+    <ul>
+      <li>接入 Kling / Seedance 2.0</li>
+      <li>接入 Google Veo/Omni</li>
+      <li>提示词 → 视频一键生成</li>
+      <li>多模型对比选择</li>
+      <li>团队协作 + API 开放</li>
+    </ul>
+  </div>
+</div>
+
+<h3>版本时间线</h3>
+<table>
+  <tr><th>版本</th><th>目标时间</th><th>核心交付</th><th>商业化</th></tr>
+  <tr><td>V1.0</td><td>2026 Q2 ✅</td><td>文字输入 → 提示词生成</td><td>免费</td></tr>
+  <tr><td>V2.0</td><td>2026 Q3</td><td>视频+图片 → 爆款复刻 + 多平台</td><td>积分 + 会员</td></tr>
+  <tr><td>V2.5</td><td>2026 Q4</td><td>团队协作 + 数据分析 + 模板市场</td><td>团队版订阅</td></tr>
+  <tr><td>V3.0</td><td>2027 Q1</td><td>接入视频生成模型，全链路闭环</td><td>按次/按时长付费</td></tr>
+</table>
+
+<div class="footer">
+  TikTok爆款复刻机 PRD V2.0 · 2026-05-26 · Confidential · Maggie
+</div>
+
+</body>
+</html>

@@ -1,6 +1,7 @@
 import json
 import secrets
 import random
+import base64
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import Response
@@ -142,15 +143,41 @@ SELLING_POINT_OPTIONS = [
     "快速见效", "高端奢华", "口碑爆款", "定制服务", "送礼首选",
 ]
 
-# 投放市场选项
+# 投放市场选项 — 级联结构：国家 → 语言
+MARKET_CASCADE = {
+    "singapore":    {"label": "新加坡", "languages": [{"value": "english", "label": "英语"}, {"value": "chinese", "label": "中文"}, {"value": "malay", "label": "马来语"}]},
+    "uk":           {"label": "英国", "languages": [{"value": "english", "label": "英语"}]},
+    "usa":          {"label": "美国", "languages": [{"value": "english", "label": "英语"}, {"value": "spanish", "label": "西班牙语"}]},
+    "saudi":        {"label": "沙特阿拉伯", "languages": [{"value": "arabic", "label": "阿拉伯语"}, {"value": "english", "label": "英语"}]},
+    "uae":          {"label": "阿联酋", "languages": [{"value": "arabic", "label": "阿拉伯语"}, {"value": "english", "label": "英语"}]},
+    "france":       {"label": "法国", "languages": [{"value": "french", "label": "法语"}, {"value": "english", "label": "英语"}]},
+    "germany":      {"label": "德国", "languages": [{"value": "german", "label": "德语"}, {"value": "english", "label": "英语"}]},
+    "italy":        {"label": "意大利", "languages": [{"value": "italian", "label": "意大利语"}, {"value": "english", "label": "英语"}]},
+    "spain":        {"label": "西班牙", "languages": [{"value": "spanish", "label": "西班牙语"}, {"value": "english", "label": "英语"}]},
+    "russia":       {"label": "俄罗斯", "languages": [{"value": "russian", "label": "俄语"}, {"value": "english", "label": "英语"}]},
+    "japan":        {"label": "日本", "languages": [{"value": "japanese", "label": "日语"}, {"value": "english", "label": "英语"}]},
+    "korea":        {"label": "韩国", "languages": [{"value": "korean", "label": "韩语"}, {"value": "english", "label": "英语"}]},
+    "china":        {"label": "中国大陆", "languages": [{"value": "chinese", "label": "中文"}]},
+    "taiwan":       {"label": "中国台湾", "languages": [{"value": "chinese", "label": "中文"}, {"value": "english", "label": "英语"}]},
+    "hongkong":     {"label": "中国香港", "languages": [{"value": "chinese", "label": "中文"}, {"value": "english", "label": "英语"}]},
+    "thailand":     {"label": "泰国", "languages": [{"value": "thai", "label": "泰语"}, {"value": "english", "label": "英语"}]},
+    "vietnam":      {"label": "越南", "languages": [{"value": "vietnamese", "label": "越南语"}, {"value": "english", "label": "英语"}]},
+    "indonesia":    {"label": "印尼", "languages": [{"value": "indonesian", "label": "印尼语"}, {"value": "english", "label": "英语"}]},
+    "philippines":  {"label": "菲律宾", "languages": [{"value": "english", "label": "英语"}, {"value": "filipino", "label": "菲律宾语"}]},
+    "malaysia":     {"label": "马来西亚", "languages": [{"value": "malay", "label": "马来语"}, {"value": "chinese", "label": "中文"}, {"value": "english", "label": "英语"}]},
+    "brazil":       {"label": "巴西", "languages": [{"value": "portuguese", "label": "葡萄牙语"}, {"value": "english", "label": "英语"}]},
+    "mexico":       {"label": "墨西哥", "languages": [{"value": "spanish", "label": "西班牙语"}, {"value": "english", "label": "英语"}]},
+    "australia":    {"label": "澳大利亚", "languages": [{"value": "english", "label": "英语"}]},
+    "canada":       {"label": "加拿大", "languages": [{"value": "english", "label": "英语"}, {"value": "french", "label": "法语"}]},
+    "india":        {"label": "印度", "languages": [{"value": "english", "label": "英语"}, {"value": "hindi", "label": "印地语"}]},
+    "turkey":       {"label": "土耳其", "languages": [{"value": "turkish", "label": "土耳其语"}, {"value": "english", "label": "英语"}]},
+    "global":       {"label": "全球", "languages": [{"value": "english", "label": "英语"}]},
+}
+
+# 兼容旧版单选结构
 MARKET_OPTIONS = [
-    {"value": "china", "label": "中国大陆", "lang": "chinese"},
-    {"value": "usa", "label": "美国", "lang": "english"},
-    {"value": "europe", "label": "欧洲", "lang": "english"},
-    {"value": "japan", "label": "日本", "lang": "japanese"},
-    {"value": "korea", "label": "韩国", "lang": "korean"},
-    {"value": "southeast_asia", "label": "东南亚", "lang": "chinese"},
-    {"value": "global", "label": "全球", "lang": "english"},
+    {"value": k, "label": v["label"], "lang": v["languages"][0]["value"]}
+    for k, v in MARKET_CASCADE.items()
 ]
 
 
@@ -403,6 +430,82 @@ async def _build_ai_prompts(params: dict, count: int, has_video: bool = False, h
     return ai_prompts
 
 
+# ========== AI 图片分析 ==========
+async def _analyze_product_image(image_bytes: bytes) -> dict:
+    """调用智谱 GLM-4V 分析产品图片，提取产品名称、描述、卖点"""
+    from zhipuai import ZhipuAI
+
+    client = ZhipuAI(api_key=settings.ZHIPUAI_API_KEY)
+
+    # base64 编码图片
+    b64 = base64.b64encode(image_bytes).decode('utf-8')
+    # 探测 MIME 类型（简单判断）
+    mime = "image/jpeg"
+    if image_bytes[:8] == b'\x89PNG\r\n\x1a\n':
+        mime = "image/png"
+    elif image_bytes[:4] == b'RIFF':
+        mime = "image/webp"
+
+    system_prompt = (
+        "你是一位资深电商产品分析师。请根据上传的产品图片，分析并输出以下信息（JSON格式）：\n"
+        "1. product_name: 产品名称（简短，2-6个字）\n"
+        "2. product_desc: 产品描述（一句话概括产品是什么、有什么特点）\n"
+        "3. selling_points: 数组，3个最突出的营销卖点（每个4-8个字）\n"
+        "只返回纯JSON，不要任何其他文字。"
+    )
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "请分析这张产品图片，输出产品名称、描述和3个核心卖点。"},
+                {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}},
+            ],
+        },
+    ]
+
+    try:
+        response = client.chat.completions.create(
+            model="glm-4v-flash",
+            messages=messages,
+            temperature=0.3,
+        )
+        raw = response.choices[0].message.content.strip()
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[1].rsplit("```", 1)[0]
+        result = json.loads(raw)
+        return {
+            "product_name": result.get("product_name", ""),
+            "product_desc": result.get("product_desc", ""),
+            "selling_points": result.get("selling_points", []),
+        }
+    except Exception as e:
+        print(f"[AI IMAGE ANALYZE ERROR] {e}")
+        return {
+            "product_name": "",
+            "product_desc": "",
+            "selling_points": [],
+        }
+
+
+@router.post("/analyze-image")
+async def analyze_image(
+    image: UploadFile = File(...),
+    current_user: models.User = Depends(get_current_user),
+):
+    """上传产品图片，AI自动分析产品名称、描述和卖点"""
+    image_bytes = await image.read()
+    if len(image_bytes) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="图片文件不能超过 10MB")
+
+    if not settings.ZHIPUAI_API_KEY:
+        raise HTTPException(status_code=503, detail="AI分析服务未配置")
+
+    result = await _analyze_product_image(image_bytes)
+    return result
+
+
 # ========== 配置选项端点 ==========
 @router.get("/options")
 async def get_options():
@@ -410,6 +513,7 @@ async def get_options():
     return {
         "selling_points": SELLING_POINT_OPTIONS,
         "markets": MARKET_OPTIONS,
+        "market_cascade": MARKET_CASCADE,
         "platforms": {k: {"label": v["label"], "ratio": v["ratio"], "resolution": v["resolution"],
                           "duration": v["duration"], "orientation": v["orientation"],
                           "lang": v["lang"]}

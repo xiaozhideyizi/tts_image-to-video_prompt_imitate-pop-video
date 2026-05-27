@@ -17,6 +17,12 @@ export const promptApi = {
   // 获取选项配置
   getOptions: () => api.get('/prompts/options'),
 
+  // AI分析产品图片
+  analyzeImage: (formData) => api.post('/prompts/analyze-image', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 60000,
+  }),
+
   // 生成提示词（multipart/form-data，支持文件上传）
   generate: (formData) => api.post('/prompts/generate', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
