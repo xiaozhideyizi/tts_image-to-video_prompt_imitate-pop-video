@@ -1,11 +1,11 @@
 # Railway 部署配置 - Nixpacks 模式
-# Railway 会自动检测 backend/ 下的 Python 项目
+# 明确指定 backend/ 为项目根目录
 
 [build]
 builder = "NIXPACKS"
 
 [deploy]
-startCommand = "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
+startCommand = "cd backend && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
 healthcheckPath = "/health"
-healthcheckTimeout = 120
+healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
