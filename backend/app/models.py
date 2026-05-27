@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean, LargeBinary
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database import Base
@@ -33,6 +33,20 @@ class PromptHistory(Base):
     audio_option = Column(String(50))
     prompts_json = Column(Text)  # JSON 字符串，存储生成的所有提示词
     created_at = Column(DateTime, server_default=func.now())
-    share_token = Column(String(64), unique=True, nullable=True)  # 分享链接 token
+    share_token = Column(String(64), unique=True, nullable=True)
+
+    # 文件存储（二进制存 PostgreSQL）
+    video_data = Column(LargeBinary, nullable=True)
+    video_filename = Column(String(255), nullable=True)
+    video_content_type = Column(String(100), nullable=True)
+    image_data = Column(LargeBinary, nullable=True)
+    image_filename = Column(String(255), nullable=True)
+    image_content_type = Column(String(100), nullable=True)
+
+    # 评测指标
+    generated_count = Column(Integer, default=0)     # 生成提示词数量
+    adopted_count = Column(Integer, default=0)        # 被采纳次数
+    violation_reason = Column(Text, nullable=True)    # 违规原因（一票否决）
+    style_weights = Column(Text, nullable=True)       # JSON: 风格权重 {"camera_x":1.2, ...}
 
     owner = relationship("User", back_populates="histories")
