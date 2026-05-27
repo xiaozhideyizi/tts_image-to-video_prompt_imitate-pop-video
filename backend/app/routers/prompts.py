@@ -663,10 +663,25 @@ async def generate_prompts(
         try:
             prompts = await _build_ai_prompts(params, count, has_video, has_image)
         except Exception as e:
+            import traceback
             print(f"[AI ERROR] {e}")
-            prompts = [_build_single_prompt(params, i, has_video, has_image) for i in range(count)]
+            traceback.print_exc()
+            # AI 失败，fallback 到本地模式
+            try:
+                prompts = [_build_single_prompt(params, i, has_video, has_image) for i in range(count)]
+            except Exception as e2:
+                import traceback
+                print(f"[LOCAL FALLBACK ERROR] {e2}")
+                traceback.print_exc()
+                raise HTTPException(status_code=500, detail=f"生成失败: AI错误={str(e)}, 本地fallback错误={str(e2)}")
     else:
-        prompts = [_build_single_prompt(params, i, has_video, has_image) for i in range(count)]
+        try:
+            prompts = [_build_single_prompt(params, i, has_video, has_image) for i in range(count)]
+        except Exception as e:
+            import traceback
+            print(f"[LOCAL GENERATE ERROR] {e}")
+            traceback.print_exc()
+            raise HTTPException(status_code=500, detail=f"本地生成失败: {str(e)}")
 
     # 保存历史记录
     history = models.PromptHistory(
