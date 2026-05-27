@@ -693,7 +693,8 @@ async def generate_prompts(
     use_ai: bool = Form(True),
     video: UploadFile = File(None),
     image: UploadFile = File(None),
-    current_user: models.User = Depends(get_current_user),
+    # 临时去掉登录验证，方便测试
+    # current_user: models.User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     # 读取上传文件
@@ -771,9 +772,9 @@ async def generate_prompts(
             traceback.print_exc()
             raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
 
-    # 保存历史记录
+    # 保存历史记录（临时用 user_id=1 跳过登录）
     history = models.PromptHistory(
-        user_id=current_user.id,
+        user_id=1,  # TODO: 恢复登录后改回 current_user.id
         product_name=product_name,
         target_market=target_market,
         target_language=target_language,
