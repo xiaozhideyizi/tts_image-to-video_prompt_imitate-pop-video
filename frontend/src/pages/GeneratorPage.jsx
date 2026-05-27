@@ -54,11 +54,7 @@ const VOICEOVER_SUBTITLE_OPTIONS = [
   { value: 'no_voice_no_sub', label: '无口播无字幕' },
 ]
 
-const SELLING_POINT_PRESETS = [
-  '高品质', '性价比', '新品首发', '限时优惠', '独家设计',
-  '功效显著', '便携轻巧', '耐用可靠', '智能科技', '环保健康',
-  '快速见效', '高端奢华', '口碑爆款', '定制服务', '送礼首选',
-]
+const SELLING_POINT_PRESETS = []  // 预设卖点已移除，全部由AI推荐
 
 // 级联市场数据 — 国家 → 语言
 const MARKET_CASCADE = {
@@ -231,6 +227,34 @@ export default function GeneratorPage() {
     } else {
       update('selling_points', [...current, point].join(','))
     }
+  }
+
+  // 修改AI推荐卖点（直接编辑）
+  const updateAiSellingPoint = (index, newValue) => {
+    if (!aiAnalysis) return
+    const oldPoints = [...(aiAnalysis.selling_points || [])]
+    const oldValue = oldPoints[index]
+    // 更新AI分析数据
+    oldPoints[index] = newValue
+    setAiAnalysis({ ...aiAnalysis, selling_points: oldPoints })
+    // 更新已选卖点（如果旧值被选中了，替换为新值）
+    const current = form.selling_points ? form.selling_points.split(',').map(s => s.trim()).filter(Boolean) : []
+    if (current.includes(oldValue)) {
+      const updated = current.map(p => p === oldValue ? newValue : p)
+      update('selling_points', updated.join(','))
+    }
+  }
+
+  // 删除AI推荐卖点
+  const removeAiSellingPoint = (index) => {
+    if (!aiAnalysis) return
+    const oldPoints = [...(aiAnalysis.selling_points || [])]
+    const removed = oldPoints[index]
+    oldPoints.splice(index, 1)
+    setAiAnalysis({ ...aiAnalysis, selling_points: oldPoints })
+    // 从已选中移除
+    const current = form.selling_points ? form.selling_points.split(',').map(s => s.trim()).filter(Boolean) : []
+    update('selling_points', current.filter(p => p !== removed).join(','))
   }
 
   const addCustomSellingPoint = () => {
@@ -535,22 +559,30 @@ export default function GeneratorPage() {
           </div>
 
           <div className="config-group">
-            <label className="config-label">💡 核心卖点（点选 + 自定义输入，可多选）</label>
-            <div className="chips-grid">
-              {/* AI推荐的卖点优先展示 */}
-              {aiAnalysis?.selling_points?.map((p, i) => (
-                <button key={`ai-${i}`} className={`chip chip-ai ${(form.selling_points || '').split(',').map(s=>s.trim()).includes(p) ? 'selected' : ''}`} onClick={() => toggleSellingPoint(p)}>
-                  ✨ {p}
-                </button>
-              ))}
-              {SELLING_POINT_PRESETS.map(p => (
-                <button key={p} className={`chip ${(form.selling_points || '').split(',').map(s=>s.trim()).includes(p) ? 'selected' : ''}`} onClick={() => toggleSellingPoint(p)}>
-                  {p}
-                </button>
-              ))}
+            <label className="config-label">💡 核心卖点（AI推荐，可编辑修改，可多选）</label>
+            {!aiAnalysis && !analyzing && (
+              <div className="sp-empty-hint">上传产品图片后，AI将自动分析推荐卖点</div>
+            )}
+            <div className="sp-ai-list">
+              {aiAnalysis?.selling_points?.map((p, i) => {
+                const isSelected = (form.selling_points || '').split(',').map(s => s.trim()).includes(p)
+                return (
+                  <div key={i} className={`sp-ai-row ${isSelected ? 'selected' : ''}`}>
+                    <button className={`sp-ai-check ${isSelected ? 'checked' : ''}`} onClick={() => toggleSellingPoint(p)}>
+                      {isSelected ? '✓' : ''}
+                    </button>
+                    <input
+                      className="sp-ai-input"
+                      value={p}
+                      onChange={e => updateAiSellingPoint(i, e.target.value)}
+                    />
+                    <button className="sp-ai-del" onClick={() => removeAiSellingPoint(i)}>✕</button>
+                  </div>
+                )
+              })}
             </div>
             <div className="custom-input-row">
-              <input value={customSellingPoint} onChange={e => setCustomSellingPoint(e.target.value)} placeholder="自定义卖点..." onKeyDown={e => e.key === 'Enter' && addCustomSellingPoint()} />
+              <input value={customSellingPoint} onChange={e => setCustomSellingPoint(e.target.value)} placeholder="添加自定义卖点..." onKeyDown={e => e.key === 'Enter' && addCustomSellingPoint()} />
               <button className="add-btn" onClick={addCustomSellingPoint}>+ 添加</button>
             </div>
             {form.selling_points && (
