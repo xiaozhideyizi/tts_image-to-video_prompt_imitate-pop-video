@@ -3,6 +3,8 @@ import secrets
 import random
 import base64
 import re
+import os
+import uuid
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import Response
@@ -14,6 +16,37 @@ from app.auth import get_current_user
 from app.config import settings
 
 router = APIRouter(prefix="/api/prompts", tags=["prompts"])
+
+# ========== 文件存储（本地文件系统，避免数据库 BYTEA 存大文件导致500）==========
+UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "/tmp/uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+
+def _save_uploaded_file(file_bytes: bytes, filename: str, content_type: str) -> Dict:
+    """保存上传文件到本地磁盘，数据库只存JSON元信息"""
+    ext = os.path.splitext(filename or "file")[1] or ".bin"
+    file_id = uuid.uuid4().hex[:12]
+    safe_name = f"{file_id}{ext}"
+    file_path = os.path.join(UPLOAD_DIR, safe_name)
+    with open(file_path, "wb") as f:
+        f.write(file_bytes)
+    print(f"[FILE SAVE] {filename} -> {safe_name} ({len(file_bytes)} bytes)")
+    return {
+        "file_path": file_path,
+        "file_id": file_id,
+        "filename": filename,
+        "content_type": content_type,
+        "size": len(file_bytes),
+    }
+
+
+def _read_saved_file(file_meta: Dict) -> Optional[bytes]:
+    """从本地磁盘读取文件"""
+    path = file_meta.get("file_path")
+    if path and os.path.exists(path):
+        with open(path, "rb") as f:
+            return f.read()
+    return None
 
 
 # ========== JSON 解析辅助函数 ==========
@@ -698,32 +731,26 @@ async def generate_prompts(
     # current_user: models.User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    # 读取上传文件
-    video_data = None
-    video_filename = None
-    video_content_type = None
-    image_data = None
-    image_filename = None
-    image_content_type = None
+    # 读取上传文件 → 存到本地文件系统（不存数据库 BYTEA）
+    video_meta = None
+    image_meta = None
 
     if video:
         video_bytes = await video.read()
         if len(video_bytes) > 100 * 1024 * 1024:
             raise HTTPException(status_code=400, detail="视频文件不能超过 100MB")
-        video_data = video_bytes
-        video_filename = video.filename
-        video_content_type = video.content_type
+        video_meta = _save_uploaded_file(video_bytes, video.filename or "video.mp4", video.content_type or "video/mp4")
+        print(f"[UPLOAD] 视频已保存: {video_meta['filename']} ({video_meta['size']} bytes)")
 
     if image:
         image_bytes = await image.read()
         if len(image_bytes) > 10 * 1024 * 1024:
             raise HTTPException(status_code=400, detail="图片文件不能超过 10MB")
-        image_data = image_bytes
-        image_filename = image.filename
-        image_content_type = image.content_type
+        image_meta = _save_uploaded_file(image_bytes, image.filename or "image.jpg", image.content_type or "image/jpeg")
+        print(f"[UPLOAD] 图片已保存: {image_meta['filename']} ({image_meta['size']} bytes)")
 
-    has_video = video_data is not None
-    has_image = image_data is not None
+    has_video = video_meta is not None
+    has_image = image_meta is not None
 
     params = {
         "product_name": product_name,
@@ -773,7 +800,7 @@ async def generate_prompts(
             traceback.print_exc()
             raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
 
-    # 保存历史记录（临时用 user_id=1 跳过登录）
+    # 保存历史记录（文件存本地，数据库只存JSON元信息）
     try:
         history = models.PromptHistory(
             user_id=1,  # TODO: 恢复登录后改回 current_user.id
@@ -788,12 +815,12 @@ async def generate_prompts(
             audio_option=audio_option,
             video_model=video_model,
             prompts_json=json.dumps(prompts, ensure_ascii=False),
-            video_data=video_data,
-            video_filename=video_filename,
-            video_content_type=video_content_type,
-            image_data=image_data,
-            image_filename=image_filename,
-            image_content_type=image_content_type,
+            video_data=None,  # 不再存BYTEA
+            video_filename=json.dumps(video_meta, ensure_ascii=False) if video_meta else None,
+            video_content_type=video_meta.get("content_type") if video_meta else None,
+            image_data=None,  # 不再存BYTEA
+            image_filename=json.dumps(image_meta, ensure_ascii=False) if image_meta else None,
+            image_content_type=image_meta.get("content_type") if image_meta else None,
             generated_count=len(prompts),
             adopted_count=0,
             style_weights=json.dumps(style_weights) if style_weights else None,
@@ -813,48 +840,58 @@ async def generate_prompts(
     return {"prompts": prompts, "history_id": history.id if history else None}
 
 
-# ========== 文件服务端点 ==========
+# ========== 文件服务端点（从本地文件系统读取）==========
 @router.get("/history/{history_id}/video")
 async def get_history_video(
     history_id: int,
-    current_user: models.User = Depends(get_current_user),
+    # current_user: models.User = Depends(get_current_user),  # 临时去掉登录验证
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(models.PromptHistory).where(
-            models.PromptHistory.id == history_id,
-            models.PromptHistory.user_id == current_user.id,
-        )
+        select(models.PromptHistory).where(models.PromptHistory.id == history_id)
     )
     history = result.scalar_one_or_none()
-    if not history or not history.video_data:
+    if not history or not history.video_filename:
         raise HTTPException(status_code=404, detail="视频不存在")
+    # video_filename 现在存的是JSON元信息
+    try:
+        video_meta = json.loads(history.video_filename)
+    except (TypeError, json.JSONDecodeError):
+        raise HTTPException(status_code=404, detail="视频文件信息损坏")
+    file_bytes = _read_saved_file(video_meta)
+    if not file_bytes:
+        raise HTTPException(status_code=404, detail="视频文件已过期（服务重启后临时文件已清除）")
     return Response(
-        content=history.video_data,
-        media_type=history.video_content_type or "video/mp4",
-        headers={"Content-Disposition": f"inline; filename={history.video_filename or 'video.mp4'}"},
+        content=file_bytes,
+        media_type=video_meta.get("content_type", "video/mp4"),
+        headers={"Content-Disposition": f"inline; filename={video_meta.get('filename', 'video.mp4')}"},
     )
 
 
 @router.get("/history/{history_id}/image")
 async def get_history_image(
     history_id: int,
-    current_user: models.User = Depends(get_current_user),
+    # current_user: models.User = Depends(get_current_user),  # 临时去掉登录验证
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(models.PromptHistory).where(
-            models.PromptHistory.id == history_id,
-            models.PromptHistory.user_id == current_user.id,
-        )
+        select(models.PromptHistory).where(models.PromptHistory.id == history_id)
     )
     history = result.scalar_one_or_none()
-    if not history or not history.image_data:
+    if not history or not history.image_filename:
         raise HTTPException(status_code=404, detail="图片不存在")
+    # image_filename 现在存的是JSON元信息
+    try:
+        image_meta = json.loads(history.image_filename)
+    except (TypeError, json.JSONDecodeError):
+        raise HTTPException(status_code=404, detail="图片文件信息损坏")
+    file_bytes = _read_saved_file(image_meta)
+    if not file_bytes:
+        raise HTTPException(status_code=404, detail="图片文件已过期（服务重启后临时文件已清除）")
     return Response(
-        content=history.image_data,
-        media_type=history.image_content_type or "image/jpeg",
-        headers={"Content-Disposition": f"inline; filename={history.image_filename or 'image.jpg'}"},
+        content=file_bytes,
+        media_type=image_meta.get("content_type", "image/jpeg"),
+        headers={"Content-Disposition": f"inline; filename={image_meta.get('filename', 'image.jpg')}"},
     )
 
 
@@ -996,13 +1033,13 @@ async def get_user_stats(
 async def get_history(
     page: int = 1,
     page_size: int = 20,
-    current_user: models.User = Depends(get_current_user),
+    # current_user: models.User = Depends(get_current_user),  # 临时去掉登录验证
     db: AsyncSession = Depends(get_db),
 ):
     offset = (page - 1) * page_size
     result = await db.execute(
         select(models.PromptHistory)
-        .where(models.PromptHistory.user_id == current_user.id)
+        # .where(models.PromptHistory.user_id == current_user.id)  # 临时去掉
         .order_by(desc(models.PromptHistory.created_at))
         .offset(offset)
         .limit(page_size)
@@ -1018,8 +1055,8 @@ async def get_history(
                 "prompts_json": h.prompts_json,
                 "created_at": h.created_at.isoformat(),
                 "share_token": h.share_token,
-                "has_video": h.video_data is not None,
-                "has_image": h.image_data is not None,
+                "has_video": h.video_filename is not None,  # 改为检查filename字段
+                "has_image": h.image_filename is not None,  # 改为检查filename字段
                 "generated_count": h.generated_count,
                 "adopted_count": h.adopted_count,
                 "violation_reason": h.violation_reason,
