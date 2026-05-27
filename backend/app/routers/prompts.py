@@ -562,6 +562,17 @@ async def analyze_image(
     return result
 
 
+# ========== AI 服务状态检查 ==========
+@router.get("/check-ai")
+async def check_ai_service():
+    """检查智谱 AI 服务是否可用"""
+    has_key = bool(settings.ZHIPUAI_API_KEY and settings.ZHIPUAI_API_KEY != "your-zhipuai-api-key-here")
+    return {
+        "ai_available": has_key,
+        "message": "AI分析服务已就绪" if has_key else "AI分析服务未配置，请在 Railway 环境变量中设置 ZHIPUAI_API_KEY",
+    }
+
+
 # ========== 配置选项端点 ==========
 @router.get("/options")
 async def get_options():

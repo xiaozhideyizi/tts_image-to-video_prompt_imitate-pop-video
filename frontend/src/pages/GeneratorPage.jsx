@@ -136,6 +136,7 @@ export default function GeneratorPage() {
   // AI分析结果
   const [aiAnalysis, setAiAnalysis] = useState(null) // {product_name, product_desc, selling_points:[]}
   const [analyzing, setAnalyzing] = useState(false)
+  const [aiAvailable, setAiAvailable] = useState(null) // null=未检查, true/false
 
   // 级联市场选择器状态
   const [marketOpen, setMarketOpen] = useState(false)
@@ -156,9 +157,25 @@ export default function GeneratorPage() {
     return 'domestic_social'
   }
 
-  // 加载评测统计
+  // 检查 AI 服务是否可用
+  useEffect(() => {
+    promptApi.getOptions().then(res => {
+      // options 接口不报错，检查是否有 video_models 字段来判断后端版本
+    }).catch(() => {})
+    // 专门检查 AI 可用性
+    fetch(aiAvailable === null ? '/api/prompts/check-ai' : '').catch(() => {})
+  }, [])
+
+  // 加载评测统计 + AI 状态检查
   useEffect(() => {
     promptApi.getStats().then(res => setStats(res.data)).catch(() => {})
+    // 检查 AI 是否可用
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    const base = isLocal ? '/api' : 'https://incredible-alignment-production-4ba5.up.railway.app/api'
+    fetch(`${base}/prompts/check-ai`)
+      .then(r => r.json())
+      .then(d => setAiAvailable(d.ai_available))
+      .catch(() => setAiAvailable(false))
   }, [])
 
   // 视频选择
@@ -192,7 +209,13 @@ export default function GeneratorPage() {
         update('product_name', res.data.product_name)
       }
     } catch (err) {
-      console.log('AI分析失败:', err)
+      const detail = err.response?.data?.detail || err.message || '未知错误'
+      console.log('AI分析失败:', detail)
+      if (detail.includes('未配置') || detail.includes('503')) {
+        setError('AI分析服务未配置，请在后端环境变量中设置 ZHIPUAI_API_KEY')
+      } else {
+        setError('AI图片分析失败：' + detail)
+      }
     } finally {
       setAnalyzing(false)
     }
@@ -468,6 +491,12 @@ export default function GeneratorPage() {
           </div>
 
           <div className="step-note">💡 参考视频只模仿风格、分镜、转场和动效，不会复制视频中的人物。模特根据商品卖点和投放市场本土化原创。</div>
+
+          {aiAvailable === false && (
+            <div className="ai-warning-banner">
+              ⚠️ AI图片分析服务未配置，上传图片后无法自动识别产品和卖点。请在 Railway 环境变量中设置 <code>ZHIPUAI_API_KEY</code>
+            </div>
+          )}
 
           <div className="step-actions">
             <button className="step-next" disabled={!canNext()} onClick={() => setStep(1)}>
