@@ -463,7 +463,11 @@ async def _build_ai_prompts(params: dict, count: int, has_video: bool = False, h
     if raw.startswith("```"):
         raw = raw.split("\n", 1)[1].rsplit("```", 1)[0]
 
-    ai_prompts = json.loads(raw)
+    try:
+        ai_prompts = json.loads(raw)
+    except json.JSONDecodeError as e:
+        print(f"[AI JSON PARSE ERROR] {e}\nRaw: {raw[:500]}")
+        raise ValueError(f"AI返回JSON解析失败: {str(e)}")
     for p in ai_prompts:
         p.setdefault("audit", f"图片: {'✅' if has_image else '❌'} | 视频: {'✅' if has_video else '❌'}")
         # 确保 promptGroups 存在
