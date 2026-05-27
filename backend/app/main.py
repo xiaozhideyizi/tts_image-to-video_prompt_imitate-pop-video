@@ -28,10 +28,16 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# 处理 CORS 配置
+origins = settings.cors_origins_list
+allow_all = "*" in origins
+if allow_all:
+    origins = ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
-    allow_credentials=True,
+    allow_origins=origins,
+    allow_credentials=not allow_all,  # 通配符时不能带 credentials
     allow_methods=["*"],
     allow_headers=["*"],
 )
