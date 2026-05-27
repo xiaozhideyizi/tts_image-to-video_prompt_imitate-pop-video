@@ -2,6 +2,7 @@ import json
 import secrets
 import random
 import base64
+import re
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import Response
@@ -13,6 +14,80 @@ from app.auth import get_current_user
 from app.config import settings
 
 router = APIRouter(prefix="/api/prompts", tags=["prompts"])
+
+
+# ========== JSON 解析辅助函数 ==========
+def _parse_ai_json_response(raw: str) -> list:
+    """
+    健壮地解析AI返回的JSON响应
+    处理：markdown代码块、额外文字、单引号、尾随逗号等
+    """
+    if not raw:
+        raise ValueError("AI返回空内容")
+
+    raw = raw.strip()
+    print(f"[AI JSON PARSER] Raw length: {len(raw)}")
+
+    # 1. 移除markdown代码块
+    if raw.startswith("```"):
+        # 找到第一个换行后的内容
+        first_newline = raw.find("\n")
+        if first_newline != -1:
+            raw = raw[first_newline+1:]
+        # 移除结尾的 ```
+        last_backticks = raw.rfind("```")
+        if last_backticks != -1:
+            raw = raw[:last_backticks]
+        raw = raw.strip()
+
+    # 2. 提取JSON数组（查找第一个 [ 和最后一个 ]）
+    json_start = raw.find('[')
+    json_end = raw.rfind(']')
+    if json_start != -1 and json_end != -1 and json_end > json_start:
+        json_str = raw[json_start:json_end+1]
+    else:
+        json_str = raw
+
+    # 3. 尝试直接解析
+    try:
+        return json.loads(json_str)
+    except json.JSONDecodeError as e:
+        print(f"[AI JSON PARSER] First parse failed: {e}")
+
+    # 4. 尝试修复常见问题
+    try:
+        # 移除尾随逗号
+        fixed = re.sub(r',\s*([\]}])', r'\1', json_str)
+        return json.loads(fixed)
+    except json.JSONDecodeError as e:
+        print(f"[AI JSON PARSER] Fix attempt 1 failed: {e}")
+
+    # 5. 尝试修复单引号
+    try:
+        fixed = json_str.replace("'", '"')
+        return json.loads(fixed)
+    except json.JSONDecodeError as e:
+        print(f"[AI JSON PARSER] Fix attempt 2 failed: {e}")
+
+    # 6. 最后尝试：使用正则提取对象
+    try:
+        # 尝试提取 {...} 模式
+        pattern = r'\{[^{}]*\}'
+        matches = re.findall(pattern, json_str)
+        if matches:
+            results = []
+            for m in matches:
+                try:
+                    obj = json.loads(m)
+                    results.append(obj)
+                except:
+                    continue
+            if results:
+                return results
+    except Exception as e:
+        print(f"[AI JSON PARSER] Regex extraction failed: {e}")
+
+    raise ValueError(f"无法解析AI返回的JSON: {str(e)}")
 
 # ========== 动态起手库 ==========
 DYNAMIC_STARTERS = {
@@ -460,14 +535,11 @@ async def _build_ai_prompts(params: dict, count: int, has_video: bool = False, h
     )
 
     raw = response.choices[0].message.content.strip()
-    if raw.startswith("```"):
-        raw = raw.split("\n", 1)[1].rsplit("```", 1)[0]
+    print(f"[AI RAW RESPONSE] Length={len(raw)}, Preview: {raw[:500]}...")
 
-    try:
-        ai_prompts = json.loads(raw)
-    except json.JSONDecodeError as e:
-        print(f"[AI JSON PARSE ERROR] {e}\nRaw: {raw[:500]}")
-        raise ValueError(f"AI返回JSON解析失败: {str(e)}")
+    # 使用健壮的JSON解析函数
+    ai_prompts = _parse_ai_json_response(raw)
+
     for p in ai_prompts:
         p.setdefault("audit", f"图片: {'✅' if has_image else '❌'} | 视频: {'✅' if has_video else '❌'}")
         # 确保 promptGroups 存在
@@ -532,8 +604,18 @@ async def _analyze_product_image(image_bytes: bytes) -> dict:
             temperature=0.3,
         )
         raw = response.choices[0].message.content.strip()
+        print(f"[AI IMAGE ANALYSIS RAW] {raw[:500]}...")
+
+        # 清理JSON响应
         if raw.startswith("```"):
-            raw = raw.split("\n", 1)[1].rsplit("```", 1)[0]
+            raw = raw.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+
+        # 提取JSON对象
+        json_start = raw.find('{')
+        json_end = raw.rfind('}')
+        if json_start != -1 and json_end != -1:
+            raw = raw[json_start:json_end+1]
+
         result = json.loads(raw)
         return {
             "product_name": result.get("product_name", ""),

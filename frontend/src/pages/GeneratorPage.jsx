@@ -162,8 +162,6 @@ export default function GeneratorPage() {
     promptApi.getOptions().then(res => {
       // options 接口不报错，检查是否有 video_models 字段来判断后端版本
     }).catch(() => {})
-    // 专门检查 AI 可用性
-    fetch(aiAvailable === null ? '/api/prompts/check-ai' : '').catch(() => {})
   }, [])
 
   // 加载评测统计 + AI 状态检查
