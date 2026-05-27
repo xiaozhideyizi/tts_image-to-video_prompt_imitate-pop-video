@@ -27,6 +27,7 @@ async def init_db():
             ("platform", "VARCHAR(50)"),
             ("voiceover_subtitle", "VARCHAR(50)"),
             ("audio_option", "VARCHAR(50)"),
+            ("video_model", "VARCHAR(50)"),
             # 文件存储字段
             ("video_data", "BYTEA"),
             ("video_filename", "VARCHAR(255)"),

@@ -181,30 +181,58 @@ MARKET_OPTIONS = [
 ]
 
 
-# ========== 分组分段逻辑 ==========
-def _split_prompt_by_duration(final_prompt: str, duration_sec: int) -> list:
+# ========== 视频模型配置 ==========
+VIDEO_MODELS = {
+    "kling":      {"label": "Kling",         "segment_unit": 15, "description": "快手可灵AI视频模型"},
+    "seedance":   {"label": "Seedance 2.0",  "segment_unit": 15, "description": "字节即梦AI视频模型"},
+    "google_omni":{"label": "Google Omni",    "segment_unit": 10, "description": "Google Veo/Omni视频模型"},
+}
+
+
+# ========== 分组分段逻辑（按视频模型能力） ==========
+def _split_prompt_by_duration(final_prompt: str, duration_sec: int, video_model: str = "seedance") -> list:
     """
-    如果平台推荐时长 ≤12s，直接传完整提示词；
-    如果 >12s，按12s为单位分组，不足12s按12s算。
-    返回分组后的提示词列表。
+    根据视频模型能力决定分段单位：
+    - kling / seedance: ≤15s直接传完整提示词, >15s按15s分组, 不足15s保留剩余秒数
+    - google_omni: ≤10s直接传完整提示词, >10s按10s分组, 不足10s保留剩余秒数
+    返回分组列表，每个元素包含 prompt/startTime/endTime/duration
     """
-    if duration_sec <= 12:
-        return [final_prompt]
+    unit = VIDEO_MODELS.get(video_model, VIDEO_MODELS["seedance"])["segment_unit"]
+
+    if duration_sec <= unit:
+        return [{
+            "prompt": final_prompt,
+            "startTime": 0,
+            "endTime": duration_sec,
+            "duration": duration_sec,
+        }]
 
     groups = []
-    num_groups = (duration_sec + 11) // 12  # 向上取整
-    for i in range(num_groups):
-        start_s = i * 12
-        end_s = min((i + 1) * 12, duration_sec)
+    remaining = duration_sec
+    offset = 0
+    idx = 1
+    while remaining > 0:
+        seg_dur = min(unit, remaining)
+        start_s = offset
+        end_s = offset + seg_dur
         group_prompt = (
-            f"[Segment {i+1}/{num_groups} | {start_s}-{end_s}s]\n"
-            f"This is segment {i+1} of {num_groups}. "
-            f"Time range: {start_s}s to {end_s}s.\n\n"
+            f"[Segment {idx} | {start_s}-{end_s}s ({seg_dur}s)]\n"
+            f"This is segment {idx}. "
+            f"Time range: {start_s}s to {end_s}s, duration: {seg_dur}s.\n\n"
             f"{final_prompt}\n\n"
-            f"IMPORTANT: Only render the {start_s}-{end_s}s portion. "
-            f"This segment must flow {'from the previous segment' if i > 0 else 'as the opening hook'}."
+            f"IMPORTANT: Only render the {start_s}-{end_s}s portion ({seg_dur}s). "
+            f"This segment must flow {'from the previous segment' if idx > 1 else 'as the opening hook'}."
         )
-        groups.append(group_prompt)
+        groups.append({
+            "prompt": group_prompt,
+            "startTime": start_s,
+            "endTime": end_s,
+            "duration": seg_dur,
+        })
+        remaining -= seg_dur
+        offset = end_s
+        idx += 1
+
     return groups
 
 
@@ -314,8 +342,9 @@ def _build_single_prompt(params: dict, index: int, has_video: bool = False, has_
         f"CRITICAL: All human figures must be ORIGINAL, locally adapted for {params['target_market']} market. Never copy reference video people."
     )
 
-    # 分组分段
-    prompt_groups = _split_prompt_by_duration(final_prompt, dur_sec)
+    # 分组分段（按视频模型能力）
+    video_model = params.get("video_model", "seedance")
+    prompt_groups = _split_prompt_by_duration(final_prompt, dur_sec, video_model)
 
     return {
         "index": index + 1,
@@ -326,6 +355,8 @@ def _build_single_prompt(params: dict, index: int, has_video: bool = False, has_
         "finalPrompt": final_prompt,
         "promptGroups": prompt_groups,
         "totalGroups": len(prompt_groups),
+        "videoModel": video_model,
+        "segmentUnit": VIDEO_MODELS.get(video_model, VIDEO_MODELS["seedance"])["segment_unit"],
     }
 
 
@@ -365,16 +396,29 @@ async def _build_ai_prompts(params: dict, count: int, has_video: bool = False, h
     if has_image:
         image_instruction = "\n- The provided product image must be strictly animated and maintained with visual fidelity.\n"
 
-    # 分组分段指令
+    # 分组分段指令（按视频模型能力）
+    video_model = params.get("video_model", "seedance")
+    unit = VIDEO_MODELS.get(video_model, VIDEO_MODELS["seedance"])["segment_unit"]
+    model_label = VIDEO_MODELS.get(video_model, VIDEO_MODELS["seedance"])["label"]
+
     group_instruction = ""
-    if dur_sec > 12:
-        num_groups = (dur_sec + 11) // 12
+    if dur_sec > unit:
+        # 计算分组
+        remaining = dur_sec
+        groups_info = []
+        offset = 0
+        while remaining > 0:
+            seg = min(unit, remaining)
+            groups_info.append(f"{offset}-{offset+seg}s ({seg}s)")
+            remaining -= seg
+            offset += seg
+        groups_desc = ", ".join(groups_info)
         group_instruction = (
-            f"\n\nSEGMENT GROUPING RULE (Duration {dur_sec}s > 12s):\n"
-            f"- Split into {num_groups} groups, each covering 12 seconds.\n"
-            f"- Each group must be a complete, self-contained prompt segment.\n"
+            f"\n\nSEGMENT GROUPING RULE (Video model: {model_label}, unit: {unit}s, Duration: {dur_sec}s):\n"
+            f"- Split into {len(groups_info)} groups: {groups_desc}\n"
+            f"- Each group must be a complete, self-contained prompt segment with specific time range.\n"
             f"- Groups must flow naturally from one to the next.\n"
-            f"- Include a 'promptGroups' array field in each result, with {num_groups} string elements.\n"
+            f"- Include a 'promptGroups' array field in each result, with {len(groups_info)} string elements.\n"
         )
     else:
         group_instruction = "\n- Include a 'promptGroups' array with 1 element (the full prompt).\n"
@@ -425,8 +469,20 @@ async def _build_ai_prompts(params: dict, count: int, has_video: bool = False, h
         # 确保 promptGroups 存在
         if "promptGroups" not in p:
             dur = int(profile["duration"].replace("s", ""))
-            p["promptGroups"] = _split_prompt_by_duration(p.get("finalPrompt", ""), dur)
+            p["promptGroups"] = _split_prompt_by_duration(p.get("finalPrompt", ""), dur, video_model)
+        else:
+            # 如果AI返回的是字符串数组，转换为结构化格式
+            if p["promptGroups"] and isinstance(p["promptGroups"][0], str):
+                raw_groups = p["promptGroups"]
+                structured = _split_prompt_by_duration(p.get("finalPrompt", ""), dur_sec, video_model)
+                # 保留AI生成的内容，只补充结构信息
+                for i, g in enumerate(structured):
+                    if i < len(raw_groups):
+                        g["prompt"] = raw_groups[i]
+                p["promptGroups"] = structured
         p["totalGroups"] = len(p.get("promptGroups", [p.get("finalPrompt", "")]))
+        p["videoModel"] = video_model
+        p["segmentUnit"] = unit
     return ai_prompts
 
 
@@ -519,6 +575,7 @@ async def get_options():
                           "lang": v["lang"]}
                       for k, v in PLATFORM_PROFILES.items()},
         "voiceover_subtitle": [{"value": k, **v} for k, v in VOICEOVER_SUBTITLE_MAP.items()],
+        "video_models": VIDEO_MODELS,
     }
 
 
@@ -534,6 +591,7 @@ async def generate_prompts(
     video_script: str = Form(""),
     bgm_style: str = Form(""),
     audio_option: str = Form("voiceover"),
+    video_model: str = Form("seedance"),
     count: int = Form(3),
     use_ai: bool = Form(True),
     video: UploadFile = File(None),
@@ -578,6 +636,7 @@ async def generate_prompts(
         "video_script": video_script,
         "bgm_style": bgm_style,
         "audio_option": audio_option,
+        "video_model": video_model,
     }
 
     # 获取用户历史风格权重
@@ -606,6 +665,7 @@ async def generate_prompts(
         video_script=video_script,
         bgm_style=bgm_style,
         audio_option=audio_option,
+        video_model=video_model,
         prompts_json=json.dumps(prompts, ensure_ascii=False),
         video_data=video_data,
         video_filename=video_filename,

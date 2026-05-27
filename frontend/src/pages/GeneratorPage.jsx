@@ -54,6 +54,13 @@ const VOICEOVER_SUBTITLE_OPTIONS = [
   { value: 'no_voice_no_sub', label: '无口播无字幕' },
 ]
 
+// 视频模型配置 — 不同模型分段单位不同
+const VIDEO_MODELS = {
+  kling:       { label: 'Kling',         segmentUnit: 15, desc: '快手可灵' },
+  seedance:    { label: 'Seedance 2.0',  segmentUnit: 15, desc: '字节即梦' },
+  google_omni: { label: 'Google Omni',   segmentUnit: 10, desc: 'Google Veo' },
+}
+
 const SELLING_POINT_PRESETS = []  // 预设卖点已移除，全部由AI推荐
 
 // 级联市场数据 — 国家 → 语言
@@ -100,9 +107,10 @@ export default function GeneratorPage() {
   const [form, setForm] = useState({
     platform: 'douyin',
     voiceover_subtitle: 'voice_with_sub',
+    video_model: 'seedance',
     product_name: '',
-    target_market: 'china',
-    target_language: 'chinese',
+    target_market: 'usa',
+    target_language: 'english',
     selling_points: '',
     video_script: '',
     bgm_style: '',
@@ -307,6 +315,7 @@ export default function GeneratorPage() {
       fd.append('video_script', form.video_script)
       fd.append('bgm_style', form.bgm_style)
       fd.append('audio_option', form.audio_option)
+      fd.append('video_model', form.video_model)
       fd.append('count', form.count)
       fd.append('use_ai', form.use_ai)
       // 文件
@@ -497,7 +506,22 @@ export default function GeneratorPage() {
             <span>📐 {currentProfile.orientation} {currentProfile.ratio}</span>
             <span>📺 {currentProfile.resolution}</span>
             <span>⏱️ {currentProfile.duration}</span>
-            {durSec > 12 && <span className="group-badge">将分为 {Math.ceil(durSec / 12)} 个 12s 片段</span>}
+            {durSec > VIDEO_MODELS[form.video_model]?.segmentUnit && (
+              <span className="group-badge">将分为 {Math.ceil(durSec / VIDEO_MODELS[form.video_model].segmentUnit)} 个片段（{VIDEO_MODELS[form.video_model].segmentUnit}s/段）</span>
+            )}
+          </div>
+
+          <div className="config-group" style={{ marginTop: 16 }}>
+            <label className="config-label">🎬 视频模型</label>
+            <div className="video-model-grid">
+              {Object.entries(VIDEO_MODELS).map(([key, m]) => (
+                <button key={key} className={`video-model-card ${form.video_model === key ? 'selected' : ''}`} onClick={() => update('video_model', key)}>
+                  <div className="vm-label">{m.label}</div>
+                  <div className="vm-desc">{m.desc}</div>
+                  <div className="vm-unit">{m.segmentUnit}s/段</div>
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="config-group" style={{ marginTop: 16 }}>
@@ -699,6 +723,7 @@ export default function GeneratorPage() {
             <div className="summary-row"><span>💡 卖点：</span><strong>{form.selling_points || '未设置'}</strong></div>
             <div className="summary-row"><span>🎯 平台：</span><strong>{PLATFORM_PROFILES[form.platform]?.ratio} {currentProfile.duration}</strong></div>
             <div className="summary-row"><span>🌍 市场：</span><strong>{getMarketDisplay()}</strong></div>
+            <div className="summary-row"><span>🎬 模型：</span><strong>{VIDEO_MODELS[form.video_model]?.label}（{VIDEO_MODELS[form.video_model]?.segmentUnit}s/段）</strong></div>
             <div className="summary-row"><span>🖼️ 产品图：</span><strong>{imageFile ? '✅ 已上传' : '❌ 未上传'}</strong></div>
             <div className="summary-row"><span>🎬 参考视频：</span><strong>{videoFile ? '✅ 已上传' : '无'}</strong></div>
           </div>
@@ -716,43 +741,72 @@ export default function GeneratorPage() {
 
           {prompts.length > 0 && (
             <div className="results-area">
-              {prompts.map((p, idx) => (
-                <div className="result-card" key={idx}>
-                  <div className="result-card-header">
-                    <span className="result-badge">方案 {p.index || idx + 1}</span>
-                    <div className="result-actions">
-                      <button className="action-btn adopt" onClick={() => handleAdopt(p.index || idx + 1)} title="采纳此方案">👍 采纳</button>
-                      <button className="action-btn violation" onClick={() => setViolationModal({ promptIndex: p.index || idx + 1, historyId })} title="报告违规">⚠️ 违规</button>
-                      <button className="copy-btn-sm" onClick={() => handleCopy(idx, p.finalPrompt)}>
-                        {copied[idx] ? '✓ 已复制' : '📋 复制'}
-                      </button>
-                    </div>
-                  </div>
-                  {p.audit && <div className="result-meta-line"><span className="meta-audit">🛡️ {p.audit}</span></div>}
-                  {p.audioPlan && <div className="result-meta-line"><span className="meta-audio">🎧 {p.audioPlan}</span></div>}
-                  {p.dynamicStrategy && <div className="result-meta-line"><span className="meta-dynamic">⚡ {p.dynamicStrategy}</span></div>}
+              {prompts.map((p, idx) => {
+                const groups = p.promptGroups || []
+                const isStructured = groups.length > 0 && typeof groups[0] === 'object'
+                const modelUnit = p.segmentUnit || VIDEO_MODELS[form.video_model]?.segmentUnit || 15
+                const modelLabel = VIDEO_MODELS[p.videoModel]?.label || VIDEO_MODELS[form.video_model]?.label || ''
 
-                  {/* 分组分段展示 */}
-                  {p.promptGroups && p.totalGroups > 1 ? (
-                    <div className="prompt-groups">
-                      <div className="groups-header">
-                        📑 共 {p.totalGroups} 个分段（每段12s），分别传给视频模型
+                return (
+                  <div className="result-card" key={idx}>
+                    <div className="result-card-header">
+                      <span className="result-badge">方案 {p.index || idx + 1}</span>
+                      <div className="result-actions">
+                        <button className="action-btn adopt" onClick={() => handleAdopt(p.index || idx + 1)} title="采纳此方案">👍 采纳</button>
+                        <button className="action-btn violation" onClick={() => setViolationModal({ promptIndex: p.index || idx + 1, historyId })} title="报告违规">⚠️ 违规</button>
+                        <button className="copy-btn-sm" onClick={() => handleCopy(idx, p.finalPrompt)}>
+                          {copied[idx] ? '✓ 已复制' : '📋 复制'}
+                        </button>
                       </div>
-                      {p.promptGroups.map((g, gi) => (
-                        <div key={gi} className="prompt-group">
-                          <div className="group-label">片段 {gi + 1}/{p.totalGroups}</div>
-                          <div className="group-text">{g}</div>
-                          <button className="copy-btn-sm" onClick={() => handleCopy(`${idx}-${gi}`, g)}>
-                            {copied[`${idx}-${gi}`] ? '✓ 已复制' : '📋 复制此段'}
-                          </button>
-                        </div>
-                      ))}
                     </div>
-                  ) : (
-                    <div className="result-prompt-text">{p.finalPrompt}</div>
-                  )}
-                </div>
-              ))}
+                    {p.audit && <div className="result-meta-line"><span className="meta-audit">🛡️ {p.audit}</span></div>}
+                    {p.audioPlan && <div className="result-meta-line"><span className="meta-audio">🎧 {p.audioPlan}</span></div>}
+                    {p.dynamicStrategy && <div className="result-meta-line"><span className="meta-dynamic">⚡ {p.dynamicStrategy}</span></div>}
+
+                    {/* 分组分段展示 — 竖列排列视频片段 */}
+                    {groups.length > 1 ? (
+                      <div className="prompt-groups">
+                        <div className="groups-header">
+                          📑 {modelLabel}：共 {groups.length} 个分段（{modelUnit}s/段），按顺序传给模型，竖列输出视频
+                        </div>
+                        <div className="video-segments">
+                          {groups.map((g, gi) => {
+                            const segPrompt = isStructured ? g.prompt : g
+                            const segStart = isStructured ? g.startTime : gi * modelUnit
+                            const segEnd = isStructured ? g.endTime : Math.min((gi + 1) * modelUnit, parseInt(currentProfile.duration))
+                            const segDur = isStructured ? g.duration : (segEnd - segStart)
+                            return (
+                              <div key={gi} className="video-segment">
+                                <div className="segment-header">
+                                  <span className="segment-order">片段 {gi + 1}</span>
+                                  <span className="segment-time">{segStart}s - {segEnd}s</span>
+                                  <span className="segment-duration">{segDur}s</span>
+                                </div>
+                                <div className="segment-body">
+                                                  <div className="segment-video-placeholder">
+                                    <div className="svp-icon">🎬</div>
+                                    <div className="svp-text">视频 {gi + 1}</div>
+                                    <div className="svp-hint">{segDur}s · {currentProfile.orientation}</div>
+                                  </div>
+                                  <div className="segment-prompt">
+                                    <div className="segment-prompt-label">提示词</div>
+                                    <div className="segment-prompt-text">{segPrompt}</div>
+                                  </div>
+                                </div>
+                                <button className="copy-btn-sm segment-copy" onClick={() => handleCopy(`${idx}-${gi}`, segPrompt)}>
+                                  {copied[`${idx}-${gi}`] ? '✓ 已复制' : '📋 复制此段'}
+                                </button>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="result-prompt-text">{p.finalPrompt}</div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )}
 

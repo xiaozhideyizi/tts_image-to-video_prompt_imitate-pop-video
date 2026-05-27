@@ -31,6 +31,7 @@ class PromptHistory(Base):
     video_script = Column(Text)
     bgm_style = Column(String(255))
     audio_option = Column(String(50))
+    video_model = Column(String(50))
     prompts_json = Column(Text)  # JSON 字符串，存储生成的所有提示词
     created_at = Column(DateTime, server_default=func.now())
     share_token = Column(String(64), unique=True, nullable=True)
