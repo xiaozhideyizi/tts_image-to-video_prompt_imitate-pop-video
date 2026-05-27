@@ -28,19 +28,28 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# 处理 CORS 配置
+# 处理 CORS 配置 - 优先使用环境变量，确保开发/部署都能工作
 origins = settings.cors_origins_list
-allow_all = "*" in origins
-if allow_all:
-    origins = ["*"]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=not allow_all,  # 通配符时不能带 credentials
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# 如果列表为空或只有通配符，允许所有来源
+if not origins or "*" in origins:
+    # 使用通配符
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+        expose_headers=["*"],
+    )
+else:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+        expose_headers=["*"],
+    )
 
 app.include_router(auth.router)
 app.include_router(prompts.router)
