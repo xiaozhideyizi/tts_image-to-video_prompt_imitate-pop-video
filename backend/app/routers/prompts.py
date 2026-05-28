@@ -2,6 +2,7 @@ import json
 import secrets
 import random
 import base64
+import asyncio
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import Response
@@ -453,7 +454,8 @@ async def _build_ai_prompts(params: dict, count: int, has_video: bool = False, h
         f"只返回JSON，不要其他说明。"
     )
 
-    response = client.chat.completions.create(
+    response = await asyncio.to_thread(
+        client.chat.completions.create,
         model="glm-4-flash",
         messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
         temperature=0.9,
@@ -526,7 +528,8 @@ async def _analyze_product_image(image_bytes: bytes) -> dict:
     ]
 
     try:
-        response = client.chat.completions.create(
+        response = await asyncio.to_thread(
+            client.chat.completions.create,
             model="glm-4v-flash",
             messages=messages,
             temperature=0.3,
