@@ -849,7 +849,7 @@ async def _build_ai_prompts(params: dict, count: int, has_video: bool = False, h
             f"\n\nSEGMENT GROUPING RULE (Video model: {model_label}, unit: {unit}s, Duration: {dur_sec}s):\n"
             f"- Split into {len(groups_info)} groups: {groups_desc}\n"
             f"- Each group must be a complete, self-contained prompt segment with specific time range.\n"
-            f"- For the LAST segment of each group, include: 'Transition to {next_group_start}s: [brief transition description]'\n
+            f"- For the LAST segment of each group, include: 'Transition to {next_group_start}s: [brief transition description]'\n"
             f"- Groups must flow naturally from one to the next.\n"
             f"- Include a 'promptGroups' array field in each result, with {len(groups_info)} string elements.\n"
         )
@@ -914,8 +914,7 @@ async def _build_ai_prompts(params: dict, count: int, has_video: bool = False, h
         f"    * Transitions between segments (cut/dissolve/wipe/zoom/match-cut)\n"
         f"    * Text/overlay placement and animation\n"
         f"    * Color grading mood for each segment\n"
-        f"    * TRANSITION HINT: For the LAST segment of each group (e.g. 10-15s in a 20s video), append a transition line: 'Transition to {next_segment}s: [brief natural transition description]'
-"
+        f"    * TRANSITION HINT: For the LAST segment of each group (e.g. 10-15s in a 20s video), append a transition line: 'Transition to {next_segment}s: [brief natural transition description]'\n"
         f"\n=== MANDATORY CLOSING SECTIONS (must appear verbatim in EVERY finalPrompt) ===\n"
         f"\n=== PRODUCT FIDELITY REQUIREMENTS ===\n"
         f"- Product MUST appear EXACTLY as in the uploaded reference image.\n"
