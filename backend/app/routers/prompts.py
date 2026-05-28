@@ -5,6 +5,7 @@ import base64
 import re
 import os
 import uuid
+import asyncio
 from typing import Optional, Dict, List, Any
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import Response
@@ -1086,8 +1087,15 @@ async def analyze_image(
     if not settings.ZHIPUAI_API_KEY:
         raise HTTPException(status_code=503, detail="AI分析服务未配置")
 
-    result = await _analyze_product_image(image_bytes)
-    return result
+    try:
+        # 60秒超时保护（图片分析不需要生成提示词，60s足够）
+        result = await asyncio.wait_for(
+            _analyze_product_image(image_bytes),
+            timeout=60.0
+        )
+        return result
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="AI分析超时，请稍后重试")
 
 
 # ========== AI 服务状态检查 ==========
@@ -1180,8 +1188,24 @@ async def generate_prompts(
     # 生成提示词 - AI模式优先（强化提示词+后处理校验），失败则fallback本地模式
     if use_ai and settings.ZHIPUAI_API_KEY:
         try:
-            prompts = await _build_ai_prompts(params, count, has_video, has_image)
+            # 90秒超时保护，避免智谱API响应慢导致前端120s超时
+            prompts = await asyncio.wait_for(
+                _build_ai_prompts(params, count, has_video, has_image),
+                timeout=90.0
+            )
             print(f"[GENERATE] AI生成成功，共{len(prompts)}条")
+        except asyncio.TimeoutError:
+            import traceback
+            print(f"[AI TIMEOUT] 智谱API响应超时（90s），回退本地模式")
+            traceback.print_exc()
+            try:
+                prompts = [_build_single_prompt(params, i, has_video, has_image) for i in range(count)]
+                print(f"[FALLBACK] 本地生成成功，共{len(prompts)}条（AI超时已自动回退）")
+            except Exception as e2:
+                import traceback
+                print(f"[LOCAL FALLBACK ERROR] {e2}")
+                traceback.print_exc()
+                raise HTTPException(status_code=500, detail=f"生成失败: {str(e2)}")
         except Exception as e:
             import traceback
             print(f"[AI ERROR] {e}")
