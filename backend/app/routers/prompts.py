@@ -663,12 +663,9 @@ def _build_single_prompt(params: dict, index: int, has_video: bool = False, has_
     # 计算目标词数（15s=500词，按比例调整）
     target_words = max(500, int(dur_sec * 33))  # 约33词/秒
 
-    # 随机选择风格标签
-    import random
-    style_label = random.choice(STYLE_LABELS)
-
+    # 先构建 final_prompt（不含 style_label，避免 f-string 反斜杠错误）
     final_prompt = (
-        f"【{style_label}】\n"
+        "【产品场景展示】\n"
         f"{image_note}"
         f"Format: {orientation} {ratio}, {resolution}, {duration}, 30fps, MP4.\n"
         f"Platform: {profile['label']} | {voice_tag} | {sub_tag}\n"
@@ -687,13 +684,14 @@ def _build_single_prompt(params: dict, index: int, has_video: bool = False, has_
         f"FINAL CHECK: Before rendering verify product image matches uploaded reference 1:1. If not, regenerate."
     )
 
+    # 根据提示词内容智能匹配风格标签
+    style_label = _match_style_label("产品场景展示", final_prompt)
+    # 把智能匹配的标签拼到 final_prompt 前面（用 + 拼接，避免 f-string 反斜杠错误）
+    final_prompt = "【" + style_label + "】\n" + final_prompt
+
     # 分组分段（按视频模型能力）
     video_model = params.get("video_model", "seedance")
     prompt_groups = _split_prompt_by_duration(final_prompt, dur_sec, video_model, supplement="")
-
-    # 随机选择风格标签
-    import random
-    style_label = random.choice(STYLE_LABELS)
 
     return {
         "index": index + 1,
