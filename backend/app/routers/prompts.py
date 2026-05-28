@@ -310,20 +310,21 @@ STYLE_LABELS = [
 ]
 
 
-# ========== 分组分段逻辑（按视频模型能力） ==========
-def _split_prompt_by_duration(final_prompt: str, duration_sec: int, video_model: str = "seedance") -> list:
+# ========== 两段式分组分段逻辑 ==========
+def _split_prompt_by_duration(final_prompt: str, duration_sec: int, video_model: str = "seedance", supplement: str = "") -> list:
     """
-    根据视频模型能力决定分段单位：
-    - kling / seedance: ≤15s直接传完整提示词, >15s按15s分组, 不足15s保留剩余秒数
-    - google_omni: ≤10s直接传完整提示词, >10s按10s分组, 不足10s保留剩余秒数
+    两段式分段结构（按视频模型能力）：
+    - kling / seedance: ≤15s直接传完整提示词, >15s按15s分段
+    - google_omni: ≤10s直接传完整提示词, >10s按10s分段
+
     返回分组列表，每个元素包含 prompt/startTime/endTime/duration
 
-    分段逻辑：
-    - 每个分段都包含：头部（格式约束总括）+ 对应时间范围的分镜描述 + 尾部（产品还原约束）
-    - 不在提示词内容中添加 [Segment X] 等标记
+    两段式结构：
+    - 第一个分段（0-unit）: header + 所有分镜描述(0-5s+5-10s+...+最后一段) + Transition to NNs + footer
+    - 最后一个分段（unit-end）: header + 后续分镜(bullet格式) + footer + supplement
     """
     import re
-    
+
     unit = VIDEO_MODELS.get(video_model, VIDEO_MODELS["seedance"])["segment_unit"]
 
     if duration_sec <= unit:
@@ -334,18 +335,13 @@ def _split_prompt_by_duration(final_prompt: str, duration_sec: int, video_model:
             "duration": duration_sec,
         }]
 
-    # ========== 解析 final_prompt 结构 ==========
-    
-    # 1. 提取头部（格式约束总括）
-    #    从开头到 "=== TIME SEGMENT BREAKDOWN ==="
     time_breakdown_marker = "=== TIME SEGMENT BREAKDOWN ==="
     product_fidelity_marker = "=== PRODUCT FIDELITY REQUIREMENTS ==="
-    
+
     header_end = final_prompt.find(time_breakdown_marker)
     footer_start = final_prompt.find(product_fidelity_marker)
-    
+
     if header_end == -1 or footer_start == -1:
-        # 没找到标记，fallback: 把整个 prompt 放入第一个分段
         print(f"[WARN] _split_prompt_by_duration: 未找到时间分段标记，使用完整提示词")
         return [{
             "prompt": final_prompt,
@@ -353,85 +349,179 @@ def _split_prompt_by_duration(final_prompt: str, duration_sec: int, video_model:
             "endTime": duration_sec,
             "duration": duration_sec,
         }]
-    
-    header = final_prompt[:header_end].strip()  # 头部（格式约束总括）
-    footer = final_prompt[footer_start:].strip()  # 尾部（产品还原约束）
-    
-    # 2. 提取分镜描述部分（时间段内容）
+
+    header = final_prompt[:header_end].strip()
+    footer = final_prompt[footer_start:].strip()
     time_sections_raw = final_prompt[header_end + len(time_breakdown_marker):footer_start].strip()
-    
-    # 3. 解析时间段内容 -> { "0-5": "内容...", "5-10": "内容...", ... }
+
     time_sections = {}
     current_range = None
     current_content = []
-    
+
     for line in time_sections_raw.split('\n'):
-        # 匹配时间段标记: [0-5s], [5-10s], 0-5s:, 5-10s: 等格式
         range_match = re.match(r'\s*\[?(\d+)\s*-\s*(\d+)s\]?\s*[:：]?', line)
         if range_match:
-            # 保存上一个时间段
             if current_range and current_content:
                 time_sections[current_range] = '\n'.join(current_content)
-            # 开始新的时间段
             start = int(range_match.group(1))
             end = int(range_match.group(2))
             current_range = f"{start}-{end}"
-            current_content = [line]  # 包含当前行（时间段标题行）
+            current_content = [line]
         elif current_range:
-            # 属于当前时间段的内容
             current_content.append(line)
-    
-    # 保存最后一个时间段
+
     if current_range and current_content:
         time_sections[current_range] = '\n'.join(current_content)
-    
+
     print(f"[_split_prompt_by_duration] 解析到 {len(time_sections)} 个时间段: {list(time_sections.keys())}")
-    
-    # ========== 构建分段 ==========
-    
-    groups = []
-    remaining = duration_sec
-    offset = 0
-    idx = 1
-    
+
+    # ---- 分段1（0 到 unit 秒）----
+    group1_sections = []
+    group2_sections = {}
+    transition_hint = ""
+
+    sorted_ranges = sorted(time_sections.items(), key=lambda x: int(x[0].split('-')[0]))
+
+    for time_range, content in sorted_ranges:
+        tr_start = int(time_range.split('-')[0])
+        tr_end_str = time_range.split('-')[1]
+        tr_end = int(tr_end_str) if tr_end_str else 0
+
+        if tr_end <= unit:
+            group1_sections.append(content)
+        elif tr_start >= unit:
+            adjusted_lines = []
+            for line in content.split('\n'):
+                adjusted = re.sub(
+                    r'\[?(\d+)\s*-\s*(\d+)s\]?\s*[:：]?',
+                    lambda m: f"[{int(m.group(1)) - unit}s-{int(m.group(2)) - unit}s]:",
+                    line
+                )
+                adjusted_lines.append(adjusted)
+            group2_sections[f"{tr_start - unit}-{tr_end - unit}"] = '\n'.join(adjusted_lines)
+        else:
+            lines = content.split('\n')
+            part1_lines = []
+            part2_lines = []
+            capturing_part2 = False
+
+            for line in lines:
+                tmatch = re.match(r'\s*\[?(\d+)\s*-\s*(\d+)s\]?\s*[:：]?', line)
+                if tmatch:
+                    e = int(tmatch.group(2))
+                    if e <= unit:
+                        capturing_part2 = False
+                        part1_lines.append(line)
+                    else:
+                        capturing_part2 = True
+                        adj_line = re.sub(
+                            r'\[?(\d+)\s*-\s*(\d+)s\]?\s*[:：]?',
+                            lambda m: f"[{int(m.group(1)) - unit}s-{int(m.group(2)) - unit}s]:",
+                            line
+                        )
+                        part2_lines.append(adj_line)
+                elif capturing_part2:
+                    part2_lines.append(line)
+                else:
+                    part1_lines.append(line)
+
+            if part1_lines:
+                group1_sections.append('\n'.join(part1_lines))
+            if part2_lines:
+                group2_sections[f"{unit - unit}-{tr_end - unit}"] = '\n'.join(part2_lines)
+
+    # 从 group1 最后一段提取 Transition to
+    if group1_sections:
+        last_section = group1_sections[-1]
+        last_lines = last_section.split('\n')
+        clean_lines = []
+        transition_parts = []
+        in_transition = False
+
+        for line in last_lines:
+            stripped = line.strip()
+            if not stripped:
+                continue
+            is_transition = bool(re.search(
+                r'transition|fade to|cut to|then a|接着|然后|随后|next segment|continuing|延续',
+                stripped, re.IGNORECASE
+            ))
+            is_time_marker = bool(re.match(r'\s*\[?\d+\s*-\s*\d+s\]?\s*[:：]?', stripped))
+
+            if is_transition and not is_time_marker:
+                transition_parts.append(stripped)
+                in_transition = True
+            elif is_time_marker:
+                in_transition = False
+                clean_lines.append(line)
+            elif in_transition:
+                transition_parts.append(stripped)
+            else:
+                clean_lines.append(line)
+
+        group1_sections[-1] = '\n'.join(clean_lines)
+        if transition_parts:
+            transition_hint = "Transition to " + str(duration_sec) + "s: " + ' '.join(transition_parts)
+
+    group1_parts = [header, "", '\n\n'.join(group1_sections)]
+    if transition_hint:
+        group1_parts.extend(["", transition_hint])
+    group1_parts.extend(["", footer])
+
+    groups = [{
+        "prompt": '\n'.join(group1_parts),
+        "startTime": 0,
+        "endTime": unit,
+        "duration": unit,
+    }]
+
+    # ---- 分段2（unit 到 duration_sec）：bullet 格式 ----
+    remaining = duration_sec - unit
+    offset = unit
+
     while remaining > 0:
         seg_dur = min(unit, remaining)
         start_s = offset
         end_s = offset + seg_dur
-        
-        # 收集这个时间段内的分镜内容
-        segment_time_sections = []
-        for time_range, content in time_sections.items():
+
+        segment_sections = []
+        for time_range, content in sorted(group2_sections.items(), key=lambda x: int(x[0].split('-')[0])):
             tr_start = int(time_range.split('-')[0])
-            tr_end = int(time_range.split('-')[1])
-            # 如果这个时间段在当前分段内
+            tr_end_str = time_range.split('-')[1]
+            tr_end = int(tr_end_str) if tr_end_str else 0
             if tr_start >= start_s and tr_end <= end_s:
-                segment_time_sections.append(content)
-        
-        # 构建这个分段的提示词
-        # 每个分段都包含：头部 + 对应时间范围的分镜描述 + 尾部
-        # 不在提示词内容中添加任何分段标记
-        group_prompt_parts = [
-            header,  # 头部（格式约束总括）
-            "",
-            '\n\n'.join(segment_time_sections) if segment_time_sections else "[No time sections in this range]",
-            "",
-            footer,  # 尾部（产品还原约束）
-        ]
-        
-        group_prompt = '\n'.join(group_prompt_parts)
-        
+                segment_sections.append(content)
+
+        bullet_lines = []
+        for sec in segment_sections:
+            for l in sec.split('\n'):
+                l = l.strip()
+                if not l:
+                    continue
+                tmatch = re.match(r'\[?(\d+)\s*-\s*(\d+)s\]?\s*[:：]?(.*)', l)
+                if tmatch:
+                    bullet_lines.append(f"- [{tmatch.group(1)}s-{tmatch.group(2)}s]: {tmatch.group(3).strip()}")
+                elif l.starts_with('-') or l.starts_with('*'):
+                    bullet_lines.append(l)
+                else:
+                    bullet_lines.append(f"- {l}")
+
+        bullet_content = '\n'.join(bullet_lines)
+
+        seg_parts = [header, "", bullet_content if bullet_content else "[No time sections in this range]", "", footer]
+        if supplement:
+            seg_parts.extend(["", supplement])
+
         groups.append({
-            "prompt": group_prompt,
+            "prompt": '\n'.join(seg_parts),
             "startTime": start_s,
             "endTime": end_s,
             "duration": seg_dur,
         })
-        
+
         remaining -= seg_dur
         offset = end_s
-        idx += 1
-    
+
     return groups
 
 
@@ -598,7 +688,7 @@ def _build_single_prompt(params: dict, index: int, has_video: bool = False, has_
 
     # 分组分段（按视频模型能力）
     video_model = params.get("video_model", "seedance")
-    prompt_groups = _split_prompt_by_duration(final_prompt, dur_sec, video_model)
+    prompt_groups = _split_prompt_by_duration(final_prompt, dur_sec, video_model, supplement="")
 
     # 随机选择风格标签
     import random
@@ -759,6 +849,7 @@ async def _build_ai_prompts(params: dict, count: int, has_video: bool = False, h
             f"\n\nSEGMENT GROUPING RULE (Video model: {model_label}, unit: {unit}s, Duration: {dur_sec}s):\n"
             f"- Split into {len(groups_info)} groups: {groups_desc}\n"
             f"- Each group must be a complete, self-contained prompt segment with specific time range.\n"
+            f"- For the LAST segment of each group, include: 'Transition to {next_group_start}s: [brief transition description]'\n
             f"- Groups must flow naturally from one to the next.\n"
             f"- Include a 'promptGroups' array field in each result, with {len(groups_info)} string elements.\n"
         )
@@ -823,6 +914,8 @@ async def _build_ai_prompts(params: dict, count: int, has_video: bool = False, h
         f"    * Transitions between segments (cut/dissolve/wipe/zoom/match-cut)\n"
         f"    * Text/overlay placement and animation\n"
         f"    * Color grading mood for each segment\n"
+        f"    * TRANSITION HINT: For the LAST segment of each group (e.g. 10-15s in a 20s video), append a transition line: 'Transition to {next_segment}s: [brief natural transition description]'
+"
         f"\n=== MANDATORY CLOSING SECTIONS (must appear verbatim in EVERY finalPrompt) ===\n"
         f"\n=== PRODUCT FIDELITY REQUIREMENTS ===\n"
         f"- Product MUST appear EXACTLY as in the uploaded reference image.\n"
@@ -892,10 +985,10 @@ async def _build_ai_prompts(params: dict, count: int, has_video: bool = False, h
         # 确保 promptGroups 存在且内容完整
         if "promptGroups" not in p or not p["promptGroups"]:
             dur = int(profile["duration"].replace("s", ""))
-            p["promptGroups"] = _split_prompt_by_duration(p.get("finalPrompt", ""), dur, video_model)
+            p["promptGroups"] = _split_prompt_by_duration(p.get("finalPrompt", ""), dur, video_model, supplement="")
         elif isinstance(p["promptGroups"][0], str):
             raw_groups = p["promptGroups"]
-            structured = _split_prompt_by_duration(p.get("finalPrompt", ""), dur_sec, video_model)
+            structured = _split_prompt_by_duration(p.get("finalPrompt", ""), dur_sec, video_model, supplement="")
             for i, g in enumerate(structured):
                 if i < len(raw_groups) and raw_groups[i]:
                     g["prompt"] = raw_groups[i]
