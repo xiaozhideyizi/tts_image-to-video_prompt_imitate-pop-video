@@ -710,7 +710,6 @@ def _build_single_prompt(params: dict, index: int, has_video: bool = False, has_
 
 def _build_detail_supplement(params: dict, profile: dict, dur_sec: int, needed_words: int) -> str:
     """生成镜头语言和氛围补充内容（不重复已有分镜描述），确保总词数达标"""
-    import random
     atmosphere_descs = [
         "Ambient soundscape enhances the mood: soft fabric rustle, gentle ambient music building emotional resonance.",
         "Color grading: warm, inviting palette with high saturation on product highlights, slightly desaturated background.",
@@ -940,7 +939,6 @@ async def _build_ai_prompts(params: dict, count: int, has_video: bool = False, h
     ai_prompts = _parse_ai_json_response(raw)
 
     # 后处理：校验并补充每条提示词的质量
-    import random
     MANDATORY_SUFFIX = (
         "\n\n=== PRODUCT FIDELITY REQUIREMENTS ===\n"
         "- Product MUST appear EXACTLY as in the uploaded reference image.\n"
