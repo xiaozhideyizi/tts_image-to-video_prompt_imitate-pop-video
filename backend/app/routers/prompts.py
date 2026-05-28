@@ -1125,6 +1125,7 @@ async def _build_ai_prompts(params: dict, count: int, has_video: bool = False, h
         "🔴 OUTPUT FORMAT (MANDATORY):\n"
         "   - Output language: ENGLISH only for all prompt content.\n"
         "   - styleLabel MUST be one of these Chinese labels exactly: 痛点解决流, UGC种草风, 产品场景展示, 暴力测试风, 情绪共鸣流, 极速快剪流, 高端大片风, 搞笑反转风\n"
+        f"   - CRITICAL: Each of the {count} prompts MUST have a UNIQUE styleLabel. No two prompts may share the same styleLabel.\n"
         "   - Return ONLY valid JSON array. No markdown, no explanation, no code blocks.\n"
     )
 
@@ -1146,7 +1147,7 @@ async def _build_ai_prompts(params: dict, count: int, has_video: bool = False, h
         f"{image_instruction}"
         f"{group_instruction}\n\n"
         f"=== REQUIRED finalPrompt STRUCTURE FOR EACH RESULT ===\n"
-        f"Line 1: 【styleLabel】(choose one: 痛点解决流/UGC种草风/产品场景展示/暴力测试风/情绪共鸣流/极速快剪流/高端大片风/搞笑反转风)\n"
+        f"Line 1: 【styleLabel】(each prompt MUST use a DIFFERENT label from: 痛点解决流/UGC种草风/产品场景展示/暴力测试风/情绪共鸣流/极速快剪流/高端大片风/搞笑反转风 — NO DUPLICATES across the {count} prompts)\n"
         f"Line 2: Format: {profile['orientation']} {profile['ratio']}, {profile['resolution']}, {profile['duration']}, 30fps, MP4.\n"
         f"Line 3: Platform: {profile['label']} | {'Voiceover + Subtitles' if vs_config['voiceover'] and vs_config['subtitle'] else 'Voiceover' if vs_config['voiceover'] else 'Subtitles' if vs_config['subtitle'] else 'No voiceover'}\n"
         f"Line 4: Vibe: {profile['vibe']}\n"
@@ -1197,13 +1198,39 @@ async def _build_ai_prompts(params: dict, count: int, has_video: bool = False, h
         "FINAL CHECK: Before rendering verify product image matches uploaded reference 1:1. If not, regenerate."
     )
 
+    # 先为所有提示词分配智能标签，然后去重
+    used_labels = set()
     for p in ai_prompts:
         fp = p.get("finalPrompt", "")
         word_count = len(fp.split())
 
         # 智能匹配风格标签（不再随机）
         raw_label = p.get("styleLabel", "")
-        p["styleLabel"] = _match_style_label(raw_label, fp)
+        matched_label = _match_style_label(raw_label, fp)
+
+        # 去重：如果该标签已被使用，从未使用的标签中选择最匹配的
+        if matched_label in used_labels:
+            fp_lower = fp.lower()
+            # 从剩余未使用标签中按关键词分数排序，选最高分的
+            style_keywords = {
+                "痛点解决流": ["pain", "problem", "solution", "before", "after", "fix", "repair"],
+                "UGC种草风": ["ugc", "user", "authentic", "real", "testimonial", "review"],
+                "产品场景展示": ["scene", "lifestyle", "context", "usage", "scenario"],
+                "暴力测试风": ["test", "durability", "extreme", "torture", "stress"],
+                "情绪共鸣流": ["emotion", "feeling", "relatable", "mood", "atmospheric"],
+                "极速快剪流": ["fast", "rapid", "dynamic", "energetic", "quick"],
+                "高端大片风": ["cinematic", "premium", "luxury", "high-end", "film"],
+                "搞笑反转风": ["comedy", "humor", "funny", "twist", "surprise"],
+            }
+            available = [lbl for lbl in STYLE_LABELS if lbl not in used_labels]
+            if available:
+                best = max(available, key=lambda lbl: sum(1 for kw in style_keywords.get(lbl, []) if kw in fp_lower))
+                print(f"[AI DEDUP] 提示词{p.get('index', '?')}标签去重: '{matched_label}' → '{best}'")
+                matched_label = best
+            # 如果所有标签都用完了（count > 8），允许重复
+
+        used_labels.add(matched_label)
+        p["styleLabel"] = matched_label
 
         p["audit"] = f"图片: {'✅' if has_image else '❌'} | 视频: {'✅' if has_video else '❌'} | AI词数: {word_count}"
 
