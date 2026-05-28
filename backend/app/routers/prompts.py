@@ -548,16 +548,18 @@ def _build_single_prompt(params: dict, index: int, has_video: bool = False, has_
     vibe = profile["vibe"]
     dur_sec = int(duration.replace("s", ""))
 
-    # 根据时长计算分段
+    # 根据时长计算分段（确保所有分支都定义 s1_end, s2_end）
+    s1_end = dur_sec // 3
+    s2_end = s1_end * 2
     if dur_sec <= 15:
-        s1_end = dur_sec // 3
-        s2_end = s1_end * 2
         sections = {f"0-{s1_end}s": "hook", f"{s1_end}-{s2_end}s": "showcase", f"{s2_end}-{dur_sec}s": "closing"}
     elif dur_sec <= 30:
         s1 = dur_sec // 4; s2 = s1 * 2; s3 = s1 * 3
+        s1_end = s2; s2_end = s3
         sections = {f"0-{s1}s": "hook", f"{s1}-{s2}s": "showcase_1", f"{s2}-{s3}s": "showcase_2", f"{s3}-{dur_sec}s": "closing"}
     else:
         s1 = dur_sec // 5; s2 = s1 * 2; s3 = s1 * 3; s4 = s1 * 4
+        s1_end = s3; s2_end = s4
         sections = {f"0-{s1}s": "hook", f"{s1}-{s2}s": "showcase_1", f"{s2}-{s3}s": "showcase_2", f"{s3}-{s4}s": "demo", f"{s4}-{dur_sec}s": "closing"}
 
     voice_tag = "With voiceover" if vs_config["voiceover"] else "No voiceover (visual-only)"
