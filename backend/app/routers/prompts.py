@@ -926,7 +926,8 @@ async def _build_ai_prompts(params: dict, count: int, has_video: bool = False, h
         f"ONLY return raw JSON. No markdown fences, no explanation."
     )
 
-    response = client.chat.completions.create(
+    response = await asyncio.to_thread(
+        client.chat.completions.create,
         model="glm-4-flash",
         messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
         temperature=0.9,
@@ -1038,7 +1039,8 @@ async def _analyze_product_image(image_bytes: bytes) -> dict:
     ]
 
     try:
-        response = client.chat.completions.create(
+        response = await asyncio.to_thread(
+            client.chat.completions.create,
             model="glm-4v-flash",
             messages=messages,
             temperature=0.3,
