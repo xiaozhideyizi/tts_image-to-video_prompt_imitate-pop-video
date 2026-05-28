@@ -620,59 +620,43 @@ def _build_single_prompt(params: dict, index: int, has_video: bool = False, has_
 
 
 def _build_detail_supplement(params: dict, profile: dict, dur_sec: int, needed_words: int) -> str:
-    """生成详细分镜补充内容，确保总词数达标"""
+    """生成镜头语言和氛围补充内容（不重复已有分镜描述），确保总词数达标"""
     import random
-    camera_moves = [
-        "Slow cinematic push-in from wide establishing shot to medium close-up, rack focus from background to product",
-        "Dynamic orbit shot circling the product at 15°/second with gradual elevation change",
-        "Crane shot starting from top-down bird's eye view slowly tilting to 45° hero angle",
-        "Tracking dolly shot following product placement with parallax background layers",
-        "Whip pan transition between feature highlights with motion blur effect",
-        "Macro extreme close-up with pull-back reveal showing product in lifestyle context",
-        "360° product rotation on reflective surface with dramatic side lighting sweep",
-        "Split-screen comparison transition: raw material → finished product morph effect",
+    atmosphere_descs = [
+        "Ambient soundscape enhances the mood: soft fabric rustle, gentle ambient music building emotional resonance.",
+        "Color grading: warm, inviting palette with high saturation on product highlights, slightly desaturated background.",
+        "Camera movement follows product naturally: handheld feel with subtle shake for authenticity, stabilized in post.",
+        "Pacing: starts slow and contemplative, gradually building momentum to an energetic climax.",
+        "Lens: shallow depth of field throughout, product tack-sharp against smooth bokeh background.",
+        "Aspect ratio: 9:16 vertical for mobile-first consumption, product occupies upper 2/3 of frame.",
+        "Music: upbeat, trend-driven track with a clean beat drop at the climax moment.",
+        "Transitions between scenes use natural motion: the product's movement dictates cut timing.",
+        "Close-up inserts highlight texture and material quality of the product.",
+        "Wide establishing shots place the product in aspirational lifestyle context.",
+        "Slow-motion inserts at key emotional moments to amplify impact.",
+        "Product reflection and shadow work are physically accurate and consistent throughout.",
     ]
-    lighting_setups = [
-        "Golden hour warm key light at 45° upper left, soft fill from right, cool rim light separation from background",
-        "High-contrast studio setup: beauty dish key light, grid spot for product accent, colored gel background wash",
-        "Natural window light with bounce fill, subtle practical lights in background for depth",
-        "Dramatic low-key single source with strong shadows, smoke/haze particle catch for volume",
-        "Bright clean e-commerce lighting: large softbox overhead, strip banks on sides for gradient reflections",
-    ]
-    transitions = [
-        "Match-cut transition using shape or color continuity to next segment",
-        "Smooth dissolve with luminance blend mode overlay for ethereal feel",
-        "Zoom blur whip transition with speed ramp easing in/out",
-        "Particle burst wipe transition revealing next scene through dispersing elements",
-        "Glitch digital distortion micro-transition with RGB split recovery",
+    product_animation = [
+        "Product rotates gently on a turntable: 360° in 3 seconds, then settles into hero pose.",
+        "Fabric texture detail: macro shot of material weave, captured with focus stacking technique.",
+        "Elastic band flex test: product stretched and released to demonstrate recovery properties.",
+        "Color swatch comparison: product next to reference shades showing perfect color match.",
+        "Packaging reveal: elegant unboxing sequence with slow pull-back to show full set.",
     ]
 
-    segments_per_sec = max(1, dur_sec // 5)  # 每5秒一个详细分段描述
-    supplement_parts = [f"\n=== DETAILED CINEMATIC BREAKDOWN (supplement) ==="]
+    parts = []
     words_generated = 0
 
-    for seg_idx in range(segments_per_sec):
-        seg_start = seg_idx * (dur_sec // segments_per_sec)
-        seg_end = min((seg_idx + 1) * (dur_sec // segments_per_sec), dur_sec)
-        cam = random.choice(camera_moves)
-        lit = random.choice(lighting_setups)
-        trans = random.choice(transitions) if seg_idx < segments_per_sec - 1 else ""
+    # 打乱顺序，避免每次都一样
+    all_items = random.sample(atmosphere_descs + product_animation, len(atmosphere_descs + product_animation))
 
-        seg_desc = (
-            f"\n[{seg_start}s-{seg_end}s]: "
-            f"{cam}. "
-            f"Lighting: {lit}. "
-            f"Product is centered in rule-of-thirds composition. "
-            f"Background features subtle bokeh with brand-color accent particles floating at 0.5m/s. "
-            f"Color grading shifts toward warm oranges and deep teals for premium feel. "
-            f"{trans}"
-        )
-        supplement_parts.append(seg_desc)
-        words_generated += len(seg_desc.split())
+    for item in all_items:
+        parts.append(item)
+        words_generated += len(item.split())
         if words_generated >= needed_words:
             break
 
-    return "\n".join(supplement_parts)
+    return "\n".join(parts)
 
 
 def _match_style_label(raw_label: str, final_prompt: str) -> str:
