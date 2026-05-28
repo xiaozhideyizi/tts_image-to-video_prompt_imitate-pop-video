@@ -810,7 +810,7 @@ export default function GeneratorPage() {
                 return (
                   <div className="result-card" key={idx}>
                     <div className="result-card-header">
-                      <span className="result-badge">方案 {p.index || idx + 1}</span>
+                      <span className="result-badge">{p.styleLabel || `方案 ${p.index || idx + 1}`}</span>
                       <div className="result-actions">
                         <button className="action-btn adopt" onClick={() => handleAdopt(p.index || idx + 1)} title="采纳此方案">👍 采纳</button>
                         <button className="action-btn violation" onClick={() => setViolationModal({ promptIndex: p.index || idx + 1, historyId })} title="报告违规">⚠️ 违规</button>
