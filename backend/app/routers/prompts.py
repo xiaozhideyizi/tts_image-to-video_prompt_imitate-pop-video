@@ -541,6 +541,62 @@ def _build_single_prompt(params: dict, index: int, has_video: bool = False, has_
     }
 
 
+def _build_detail_supplement(params: dict, profile: dict, dur_sec: int, needed_words: int) -> str:
+    """生成详细分镜补充内容，确保总词数达标"""
+    import random
+    camera_moves = [
+        "Slow cinematic push-in from wide establishing shot to medium close-up, rack focus from background to product",
+        "Dynamic orbit shot circling the product at 15°/second with gradual elevation change",
+        "Crane shot starting from top-down bird's eye view slowly tilting to 45° hero angle",
+        "Tracking dolly shot following product placement with parallax background layers",
+        "Whip pan transition between feature highlights with motion blur effect",
+        "Macro extreme close-up with pull-back reveal showing product in lifestyle context",
+        "360° product rotation on reflective surface with dramatic side lighting sweep",
+        "Split-screen comparison transition: raw material → finished product morph effect",
+    ]
+    lighting_setups = [
+        "Golden hour warm key light at 45° upper left, soft fill from right, cool rim light separation from background",
+        "High-contrast studio setup: beauty dish key light, grid spot for product accent, colored gel background wash",
+        "Natural window light with bounce fill, subtle practical lights in background for depth",
+        "Dramatic low-key single source with strong shadows, smoke/haze particle catch for volume",
+        "Bright clean e-commerce lighting: large softbox overhead, strip banks on sides for gradient reflections",
+    ]
+    transitions = [
+        "Match-cut transition using shape or color continuity to next segment",
+        "Smooth dissolve with luminance blend mode overlay for ethereal feel",
+        "Zoom blur whip transition with speed ramp easing in/out",
+        "Particle burst wipe transition revealing next scene through dispersing elements",
+        "Glitch digital distortion micro-transition with RGB split recovery",
+    ]
+
+    segments_per_sec = max(1, dur_sec // 5)  # 每5秒一个详细分段描述
+    supplement_parts = [f"\n=== DETAILED CINEMATIC BREAKDOWN (supplement) ==="]
+    words_generated = 0
+
+    for seg_idx in range(segments_per_sec):
+        seg_start = seg_idx * (dur_sec // segments_per_sec)
+        seg_end = min((seg_idx + 1) * (dur_sec // segments_per_sec), dur_sec)
+        cam = random.choice(camera_moves)
+        lit = random.choice(lighting_setups)
+        trans = random.choice(transitions) if seg_idx < segments_per_sec - 1 else ""
+
+        seg_desc = (
+            f"\n[{seg_start}s-{seg_end}s]: "
+            f"{cam}. "
+            f"Lighting: {lit}. "
+            f"Product is centered in rule-of-thirds composition. "
+            f"Background features subtle bokeh with brand-color accent particles floating at 0.5m/s. "
+            f"Color grading shifts toward warm oranges and deep teals for premium feel. "
+            f"{trans}"
+        )
+        supplement_parts.append(seg_desc)
+        words_generated += len(seg_desc.split())
+        if words_generated >= needed_words:
+            break
+
+    return "\n".join(supplement_parts)
+
+
 # ========== AI 提示词生成 ==========
 async def _build_ai_prompts(params: dict, count: int, has_video: bool = False, has_image: bool = False) -> list:
     """调用智谱 GLM 生成提示词"""
@@ -604,36 +660,74 @@ async def _build_ai_prompts(params: dict, count: int, has_video: bool = False, h
     else:
         group_instruction = "\n- Include a 'promptGroups' array with 1 element (the full prompt).\n"
 
+    target_words = max(500, int(dur_sec * 33))  # 约33词/秒
+
     system_prompt = (
-        "你是一位专业的短视频广告创意总监，擅长为电商产品生成高质量的AI视频提示词（prompt）。"
-        "你生成的提示词需要：1.英文输出 2.强调动态感、镜头运动 3.按时间段分段 "
-        "4.视频时长和画面格式严格按目标平台调性适配 "
-        "5.finalPrompt首行必须包含格式参数 "
-        "6.参考视频只模仿风格/分镜/转场/动效/画面渲染，绝不抄人物 7.模特必须本土化原创 "
-        "8.每条提示词必须包含一个风格标签（痛点解决流/UGC种草风/产品场景展示/暴力测试风/情绪共鸣流/极速快剪流/高端大片风/搞笑反转风）"
+        "You are a world-class short-form video ad creative director specializing in AI video prompts for e-commerce products. "
+        "Your prompts MUST meet these NON-NEGOTIABLE quality standards:\n\n"
+        "🔴 LENGTH REQUIREMENT (MANDATORY):\n"
+        f"   - Each finalPrompt MUST contain at least {target_words} words (minimum). No exceptions. No shortcuts.\n"
+        "   - If you write less than the required word count, your output is REJECTED.\n"
+        "   - Write EXTREMELY detailed, frame-by-frame cinematographic descriptions.\n"
+        "   - Describe every camera movement, lighting change, particle effect, transition, and product interaction.\n\n"
+        "🔴 PRODUCT IMAGE FIDELITY RULE (MANDATORY):\n"
+        "   - The uploaded product image MUST be reproduced EXACTLY in the video (1:1 ratio, no distortion).\n"
+        "   - Do NOT alter the product's shape, color, logo, packaging, or design in any way.\n"
+        "   - You may ONLY animate its presentation (rotation, lighting, particles, zoom), NOT its appearance.\n"
+        "   - Include this EXACT text in every finalPrompt: 'CRITICAL PRODUCT IMAGE FIDELITY RULE: Product MUST appear EXACTLY as in the uploaded reference image.'\n\n"
+        "🔴 NO COPY PEOPLE RULE (MANDATORY):\n"
+        "   - Reference videos are for STYLE REFERENCE ONLY (cinematography, shot composition, editing rhythm, transitions, motion dynamics, visual rendering).\n"
+        "   - NEVER copy any human models, actors, faces, or people from reference videos.\n"
+        "   - All human figures MUST be ORIGINAL creations, locally adapted for the target market's ethnicity and aesthetic.\n"
+        "   - Include this EXACT text in every finalPrompt: 'CRITICAL: All human figures must be ORIGINAL and LOCALLY ADAPTED. Never copy reference video people.'\n\n"
+        "🔴 OUTPUT FORMAT (MANDATORY):\n"
+        "   - Output language: ENGLISH only for all prompt content.\n"
+        "   - styleLabel MUST be one of these Chinese labels exactly: 痛点解决流, UGC种草风, 产品场景展示, 暴力测试风, 情绪共鸣流, 极速快剪流, 高端大片风, 搞笑反转风\n"
+        "   - Return ONLY valid JSON array. No markdown, no explanation, no code blocks.\n"
     )
+
     user_prompt = (
-        f"为以下产品生成{count}条不同风格的AI视频提示词：\n"
-        f"- 商品名称：{params['product_name']}\n"
-        f"- 核心卖点：{points_str}\n"
-        f"- 目标受众/模特：{market}\n"
-        f"- 目标平台：{profile['label']}\n"
-        f"  画面比例：{profile['ratio']}  分辨率：{profile['resolution']}  时长：{profile['duration']}  方向：{profile['orientation']}\n"
-        f"  平台调性：{profile['vibe']}\n"
-        f"- 口播字幕：{'有口播' if vs_config['voiceover'] else '无口播'} + {'有字幕' if vs_config['subtitle'] else '无字幕'}\n"
-        f"- 口播文案：{script_str or '无'}\n"
-        f"- 背景音乐：{bgm_str}"
+        f"Generate {count} DIFFERENT style AI video prompts for this e-commerce product:\n\n"
+        f"PRODUCT INFO:\n"
+        f"- Name: {params['product_name']}\n"
+        f"- Selling Points: {points_str}\n"
+        f"- Target Market / Models: {market}\n\n"
+        f"PLATFORM SPECIFICATIONS:\n"
+        f"- Platform: {profile['label']}\n"
+        f"- Aspect Ratio: {profile['ratio']} | Resolution: {profile['resolution']} | Duration: {profile['duration']} | Orientation: {profile['orientation']}\n"
+        f"- Platform Vibe: {profile['vibe']}\n\n"
+        f"AUDIO CONFIG:\n"
+        f"- Voiceover: {'Yes' if vs_config['voiceover'] else 'No'} | Subtitles: {'Yes' if vs_config['subtitle'] else 'No'}\n"
+        f"- Voiceover Script: {script_str or 'None'}\n"
+        f"- BGM Style: {bgm_str}\n"
         f"{video_instruction}"
         f"{image_instruction}"
-        f"{group_instruction}"
-        f"\n\n每条提示词的 finalPrompt 格式：\n"
-        f"第1行：【风格标签】\n"
-        f"第2行：Format: {profile['orientation']} {profile['ratio']}, {profile['resolution']}, {profile['duration']}, 30fps, MP4.\n"
-        f"第3行：Platform: {profile['label']} | {'With voiceover' if vs_config['voiceover'] else 'No voiceover'} | {'With subtitles' if vs_config['subtitle'] else 'No subtitles'}\n"
-        f"第4行：Vibe: {profile['vibe']}\n"
-        f"然后是动态策略和分段时间轴。末尾加: CRITICAL: All human figures must be ORIGINAL, locally adapted. Never copy reference video people.\n\n"
-        f"以JSON数组格式返回，每个元素包含 index(1-{count})、styleLabel(风格标签)、finalPrompt、dynamicStrategy、audioPlan、promptGroups(数组) 字段。"
-        f"只返回JSON，不要其他说明。"
+        f"{group_instruction}\n\n"
+        f"=== REQUIRED finalPrompt STRUCTURE FOR EACH RESULT ===\n"
+        f"Line 1: 【styleLabel】(choose one: 痛点解决流/UGC种草风/产品场景展示/暴力测试风/情绪共鸣流/极速快剪流/高端大片风/搞笑反转风)\n"
+        f"Line 2: Format: {profile['orientation']} {profile['ratio']}, {profile['resolution']}, {profile['duration']}, 30fps, MP4.\n"
+        f"Line 3: Platform: {profile['label']} | {'Voiceover + Subtitles' if vs_config['voiceover'] and vs_config['subtitle'] else 'Voiceover' if vs_config['voiceover'] else 'Subtitles' if vs_config['subtitle'] else 'No voiceover'}\n"
+        f"Line 4: Vibe: {profile['vibe']}\n"
+        f"Line 5: Dynamic strategy: [camera type] + [physics effect] + [action pattern]\n"
+        f"Line 6+: DETAILED TIME SEGMENT BREAKDOWN ({target_words}+ words total minimum)\n"
+        f"  - For EACH time segment, describe in extreme detail:\n"
+        f"    * Camera movement (push/pull/pan/tilt/orbit/dolly/truck/crane) with speed and angle\n"
+        f"    * Lighting changes (key/fill/back light, color temperature shifts)\n"
+        f"    * Product presentation (rotation, zoom, particle effects around product)\n"
+        f"    * Scene composition (foreground/midground/background elements)\n"
+        f"    * Transitions between segments (cut/dissolve/wipe/zoom/match-cut)\n"
+        f"    * Text/overlay placement and animation\n"
+        f"    * Color grading mood for each segment\n"
+        f"\n=== MANDATORY CLOSING SECTIONS (must appear verbatim in EVERY finalPrompt) ===\n"
+        f"\n=== PRODUCT FIDELITY REQUIREMENTS ===\n"
+        f"- Product MUST appear EXACTLY as in the uploaded reference image.\n"
+        f"- 1:1 ratio, no distortion, no creative alteration of product shape/color/logo.\n"
+        f"- Animate ONLY the product's presentation (rotation, lighting, particles), NOT its appearance.\n"
+        f"\nStyle tags: High motion, cinematic movement, 4k, no static shots, commercial-grade rendering.\n"
+        f"CRITICAL: All human figures must be ORIGINAL, locally adapted for {params['target_market']} market. Never copy reference video people.\n"
+        f"FINAL CHECK: Before rendering verify product image matches uploaded reference 1:1. If not, regenerate.\n\n"
+        f"Return JSON array with {count} elements. Each element MUST have fields: index(int), styleLabel(string), finalPrompt(string,{target_words}+ words), dynamicStrategy(string), audioPlan(string), promptGroups(array of strings).\n"
+        f"ONLY return raw JSON. No markdown fences, no explanation."
     )
 
     response = client.chat.completions.create(
@@ -648,29 +742,67 @@ async def _build_ai_prompts(params: dict, count: int, has_video: bool = False, h
     # 使用健壮的JSON解析函数
     ai_prompts = _parse_ai_json_response(raw)
 
-    # 为每条提示词添加风格标签
+    # 后处理：校验并补充每条提示词的质量
     import random
+    MANDATORY_SUFFIX = (
+        "\n\n=== PRODUCT FIDELITY REQUIREMENTS ===\n"
+        "- Product MUST appear EXACTLY as in the uploaded reference image.\n"
+        "- 1:1 ratio, no distortion, no creative alteration of product shape/color/logo.\n"
+        "- Animate ONLY the product's presentation (rotation, lighting, particles), NOT its appearance.\n\n"
+        "Style tags: High motion, cinematic movement, 4k, no static shots, commercial-grade rendering.\n"
+        f"CRITICAL: All human figures must be ORIGINAL, locally adapted for {params['target_market']} market. Never copy reference video people.\n"
+        "FINAL CHECK: Before rendering verify product image matches uploaded reference 1:1. If not, regenerate."
+    )
 
     for p in ai_prompts:
-        p.setdefault("styleLabel", random.choice(STYLE_LABELS))
-        p.setdefault("audit", f"图片: {'✅' if has_image else '❌'} | 视频: {'✅' if has_video else '❌'}")
-        # 确保 promptGroups 存在
-        if "promptGroups" not in p:
+        fp = p.get("finalPrompt", "")
+        word_count = len(fp.split())
+
+        # 设置风格标签（优先用AI返回的，否则随机）
+        if not p.get("styleLabel") or p["styleLabel"] not in STYLE_LABELS:
+            p["styleLabel"] = random.choice(STYLE_LABELS)
+
+        p["audit"] = f"图片: {'✅' if has_image else '❌'} | 视频: {'✅' if has_video else '❌'} | AI词数: {word_count}"
+
+        # 🔴 关键约束校验与自动补充
+        needs_fidelity = "PRODUCT FIDELITY" not in fp.upper()
+        needs_no_copy = "NEVER COPY" not in fp.upper() and "ORIGINAL" not in fp.upper()
+        needs_min_words = word_count < target_words
+
+        if needs_fidelity or needs_no_copy or needs_min_words:
+            print(f"[AI POST-PROCESS] 提示词{p.get('index', '?')}校验: 词数={word_count}/{target_words}, 缺还原={needs_fidelity}, 缺不抄人物={needs_no_copy}")
+            # 补充缺失的关键约束
+            if needs_fidelity or needs_no_copy:
+                fp = fp + MANDATORY_SUFFIX
+                print(f"[AI POST-PROCESS] 已补充产品还原+不抄人物约束")
+
+            # 如果词数仍不足，补充详细分镜描述
+            if len(fp.split()) < target_words:
+                supplement = _build_detail_supplement(params, profile, dur_sec, target_words - len(fp.split()))
+                fp = fp + "\n\n" + supplement
+                print(f"[AI POST-PROCESS] 已补充分镜描述，最终词数≈{len(fp.split())}")
+
+            p["finalPrompt"] = fp
+
+        # 确保 promptGroups 存在且内容完整
+        if "promptGroups" not in p or not p["promptGroups"]:
             dur = int(profile["duration"].replace("s", ""))
             p["promptGroups"] = _split_prompt_by_duration(p.get("finalPrompt", ""), dur, video_model)
-        else:
-            # 如果AI返回的是字符串数组，转换为结构化格式
-            if p["promptGroups"] and isinstance(p["promptGroups"][0], str):
-                raw_groups = p["promptGroups"]
-                structured = _split_prompt_by_duration(p.get("finalPrompt", ""), dur_sec, video_model)
-                # 保留AI生成的内容，只补充结构信息
-                for i, g in enumerate(structured):
-                    if i < len(raw_groups):
-                        g["prompt"] = raw_groups[i]
-                p["promptGroups"] = structured
-        p["totalGroups"] = len(p.get("promptGroups", [p.get("finalPrompt", "")]))
+        elif isinstance(p["promptGroups"][0], str):
+            raw_groups = p["promptGroups"]
+            structured = _split_prompt_by_duration(p.get("finalPrompt", ""), dur_sec, video_model)
+            for i, g in enumerate(structured):
+                if i < len(raw_groups) and raw_groups[i]:
+                    g["prompt"] = raw_groups[i]
+                # 如果AI返回的分组提示词太短，用完整的finalPrompt分段替代
+                if len(g.get("prompt", "").split()) < 30:
+                    g["prompt"] = p["finalPrompt"]
+            p["promptGroups"] = structured
+
+        p["totalGroups"] = len(p.get("promptGroups", []))
         p["videoModel"] = video_model
         p["segmentUnit"] = unit
+
     return ai_prompts
 
 
@@ -848,22 +980,34 @@ async def generate_prompts(
     style_weights = {}
     # （后续可从用户最近采纳记录中读取权重）
 
-    # 生成提示词 - 强制使用本地模式确保质量（500词+/产品图片1:1还原/不照抄人物）
-    # AI 模式（GLM-4-flash）返回内容太短且不稳定，暂不使用
-    try:
-        prompts = [_build_single_prompt(params, i, has_video, has_image) for i in range(count)]
-        print(f"[GENERATE] 本地生成成功，共{len(prompts)}条")
-        # 验证每条提示词的质量
-        for idx, p in enumerate(prompts):
-            fp = p.get("finalPrompt", "")
-            word_count = len(fp.split())
-            if word_count < 400:
-                print(f"[WARN] 提示词{idx+1}词数不足: {word_count}词，需要>=500词")
-    except Exception as e:
-        import traceback
-        print(f"[LOCAL GENERATE ERROR] {e}")
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
+    # 生成提示词 - AI模式优先（强化提示词+后处理校验），失败则fallback本地模式
+    if use_ai and settings.ZHIPUAI_API_KEY:
+        try:
+            prompts = await _build_ai_prompts(params, count, has_video, has_image)
+            print(f"[GENERATE] AI生成成功，共{len(prompts)}条")
+        except Exception as e:
+            import traceback
+            print(f"[AI ERROR] {e}")
+            traceback.print_exc()
+            try:
+                prompts = [_build_single_prompt(params, i, has_video, has_image) for i in range(count)]
+                print(f"[FALLBACK] 本地生成成功，共{len(prompts)}条（AI失败已自动回退）")
+            except Exception as e2:
+                import traceback
+                print(f"[LOCAL FALLBACK ERROR] {e2}")
+                traceback.print_exc()
+                raise HTTPException(status_code=500, detail=f"生成失败: {str(e2)}")
+    else:
+        if use_ai and not settings.ZHIPUAI_API_KEY:
+            print(f"[WARN] 用户选择AI模式但ZHIPUAI_API_KEY未配置，使用本地模式")
+        try:
+            prompts = [_build_single_prompt(params, i, has_video, has_image) for i in range(count)]
+            print(f"[GENERATE] 本地生成成功，共{len(prompts)}条")
+        except Exception as e:
+            import traceback
+            print(f"[LOCAL GENERATE ERROR] {e}")
+            traceback.print_exc()
+            raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
 
     # 保存历史记录（文件存本地，数据库只存JSON元信息）
     try:
