@@ -317,7 +317,13 @@ def _split_prompt_by_duration(final_prompt: str, duration_sec: int, video_model:
     - kling / seedance: ≤15s直接传完整提示词, >15s按15s分组, 不足15s保留剩余秒数
     - google_omni: ≤10s直接传完整提示词, >10s按10s分组, 不足10s保留剩余秒数
     返回分组列表，每个元素包含 prompt/startTime/endTime/duration
+
+    分段逻辑：
+    - 每个分段都包含：头部（格式约束总括）+ 对应时间范围的分镜描述 + 尾部（产品还原约束）
+    - 不在提示词内容中添加 [Segment X] 等标记
     """
+    import re
+    
     unit = VIDEO_MODELS.get(video_model, VIDEO_MODELS["seedance"])["segment_unit"]
 
     if duration_sec <= unit:
@@ -328,32 +334,104 @@ def _split_prompt_by_duration(final_prompt: str, duration_sec: int, video_model:
             "duration": duration_sec,
         }]
 
+    # ========== 解析 final_prompt 结构 ==========
+    
+    # 1. 提取头部（格式约束总括）
+    #    从开头到 "=== TIME SEGMENT BREAKDOWN ==="
+    time_breakdown_marker = "=== TIME SEGMENT BREAKDOWN ==="
+    product_fidelity_marker = "=== PRODUCT FIDELITY REQUIREMENTS ==="
+    
+    header_end = final_prompt.find(time_breakdown_marker)
+    footer_start = final_prompt.find(product_fidelity_marker)
+    
+    if header_end == -1 or footer_start == -1:
+        # 没找到标记，fallback: 把整个 prompt 放入第一个分段
+        print(f"[WARN] _split_prompt_by_duration: 未找到时间分段标记，使用完整提示词")
+        return [{
+            "prompt": final_prompt,
+            "startTime": 0,
+            "endTime": duration_sec,
+            "duration": duration_sec,
+        }]
+    
+    header = final_prompt[:header_end].strip()  # 头部（格式约束总括）
+    footer = final_prompt[footer_start:].strip()  # 尾部（产品还原约束）
+    
+    # 2. 提取分镜描述部分（时间段内容）
+    time_sections_raw = final_prompt[header_end + len(time_breakdown_marker):footer_start].strip()
+    
+    # 3. 解析时间段内容 -> { "0-5": "内容...", "5-10": "内容...", ... }
+    time_sections = {}
+    current_range = None
+    current_content = []
+    
+    for line in time_sections_raw.split('\n'):
+        # 匹配时间段标记: [0-5s], [5-10s], 0-5s:, 5-10s: 等格式
+        range_match = re.match(r'\s*\[?(\d+)\s*-\s*(\d+)s\]?\s*[:：]?', line)
+        if range_match:
+            # 保存上一个时间段
+            if current_range and current_content:
+                time_sections[current_range] = '\n'.join(current_content)
+            # 开始新的时间段
+            start = int(range_match.group(1))
+            end = int(range_match.group(2))
+            current_range = f"{start}-{end}"
+            current_content = [line]  # 包含当前行（时间段标题行）
+        elif current_range:
+            # 属于当前时间段的内容
+            current_content.append(line)
+    
+    # 保存最后一个时间段
+    if current_range and current_content:
+        time_sections[current_range] = '\n'.join(current_content)
+    
+    print(f"[_split_prompt_by_duration] 解析到 {len(time_sections)} 个时间段: {list(time_sections.keys())}")
+    
+    # ========== 构建分段 ==========
+    
     groups = []
     remaining = duration_sec
     offset = 0
     idx = 1
+    
     while remaining > 0:
         seg_dur = min(unit, remaining)
         start_s = offset
         end_s = offset + seg_dur
-        group_prompt = (
-            f"[Segment {idx} | {start_s}-{end_s}s ({seg_dur}s)]\n"
-            f"This is segment {idx}. "
-            f"Time range: {start_s}s to {end_s}s, duration: {seg_dur}s.\n\n"
-            f"{final_prompt}\n\n"
-            f"IMPORTANT: Only render the {start_s}-{end_s}s portion ({seg_dur}s). "
-            f"This segment must flow {'from the previous segment' if idx > 1 else 'as the opening hook'}."
-        )
+        
+        # 收集这个时间段内的分镜内容
+        segment_time_sections = []
+        for time_range, content in time_sections.items():
+            tr_start = int(time_range.split('-')[0])
+            tr_end = int(time_range.split('-')[1])
+            # 如果这个时间段在当前分段内
+            if tr_start >= start_s and tr_end <= end_s:
+                segment_time_sections.append(content)
+        
+        # 构建这个分段的提示词
+        # 每个分段都包含：头部 + 对应时间范围的分镜描述 + 尾部
+        # 不在提示词内容中添加任何分段标记
+        group_prompt_parts = [
+            header,  # 头部（格式约束总括）
+            "",
+            '\n\n'.join(segment_time_sections) if segment_time_sections else "[No time sections in this range]",
+            "",
+            footer,  # 尾部（产品还原约束）
+        ]
+        
+        group_prompt = '\n'.join(group_prompt_parts)
+        
         groups.append({
             "prompt": group_prompt,
             "startTime": start_s,
             "endTime": end_s,
             "duration": seg_dur,
         })
+        
         remaining -= seg_dur
         offset = end_s
         idx += 1
-
+    
     return groups
 
 
