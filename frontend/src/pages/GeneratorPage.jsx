@@ -162,8 +162,6 @@ export default function GeneratorPage() {
     promptApi.getOptions().then(res => {
       // options 接口不报错，检查是否有 video_models 字段来判断后端版本
     }).catch(() => {})
-    // 专门检查 AI 可用性
-    fetch(aiAvailable === null ? '/api/prompts/check-ai' : '').catch(() => {})
   }, [])
 
   // 加载评测统计 + AI 状态检查
@@ -188,17 +186,11 @@ export default function GeneratorPage() {
     setError('')
   }
 
-  // 图片选择 + AI分析
-  const handleImageSelect = async (e) => {
-    const file = e.target.files?.[0]
+  // AI分析产品图片（独立函数，支持重新调用）
+  const doAnalyzeImage = async (file) => {
     if (!file) return
-    if (file.size > 10 * 1024 * 1024) { setError('图片文件不能超过 10MB'); return }
-    setImageFile(file)
-    setImagePreview(URL.createObjectURL(file))
-    setError('')
-
-    // AI分析产品图片
     setAnalyzing(true)
+    setError('')
     try {
       const fd = new FormData()
       fd.append('image', file)
@@ -210,15 +202,28 @@ export default function GeneratorPage() {
       }
     } catch (err) {
       const detail = err.response?.data?.detail || err.message || '未知错误'
-      console.log('AI分析失败:', detail)
+      console.log('[AI ANALYZE ERROR]', detail)
       if (detail.includes('未配置') || detail.includes('503')) {
         setError('AI分析服务未配置，请在后端环境变量中设置 ZHIPUAI_API_KEY')
+      } else if (detail.includes('timeout')) {
+        setError('AI图片分析超时，请点击「重新分析」重试')
       } else {
-        setError('AI图片分析失败：' + detail)
+        setError('AI图片分析失败：' + detail + '（可点击「重新分析」重试）')
       }
     } finally {
       setAnalyzing(false)
     }
+  }
+
+  // 图片选择 + AI分析
+  const handleImageSelect = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 10 * 1024 * 1024) { setError('图片文件不能超过 10MB'); return }
+    setImageFile(file)
+    setImagePreview(URL.createObjectURL(file))
+    setError('')
+    await doAnalyzeImage(file)
   }
 
   const handleClearVideo = () => {
@@ -349,7 +354,22 @@ export default function GeneratorPage() {
       setPrompts(res.data.prompts)
       setHistoryId(res.data.history_id)
     } catch (err) {
-      setError(err.response?.data?.detail || '生成失败，请重试')
+      // 详细错误日志
+      console.error('[GENERATE ERROR]', err)
+      console.error('[RESPONSE]', err.response?.status, err.response?.data)
+      console.error('[REQUEST]', err.config?.url, err.message)
+      const detail = err.response?.data?.detail
+      if (typeof detail === 'string') {
+        setError(detail)
+      } else if (detail) {
+        setError(JSON.stringify(detail))
+      } else if (err.response) {
+        setError(`请求失败 (${err.response.status}): ${err.statusText}`)
+      } else if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+        setError('请求超时，请检查网络或稍后重试')
+      } else {
+        setError('生成失败，请重试: ' + (err.message || '未知错误'))
+      }
     } finally {
       setLoading(false)
     }
@@ -476,8 +496,19 @@ export default function GeneratorPage() {
                   <div className="upload-file-info">
                     <span>🖼️ {imageFile?.name}</span>
                     <span className="upload-file-size">{imageFile ? (imageFile.size / 1024 / 1024).toFixed(1) + ' MB' : ''}</span>
+                    {aiAnalysis && <span className="upload-ai-status" style={{ color: '#4ade80', marginLeft: 8 }}>✅ AI已分析</span>}
+                    {(!aiAnalysis && !analyzing) && <span className="upload-ai-status" style={{ color: '#f87171', marginLeft: 8 }}>⚠️ 未分析</span>}
+                    {analyzing && <span className="upload-ai-status" style={{ color: '#fbbf24', marginLeft: 8 }}>🔄 AI分析中...</span>}
                   </div>
-                  <button className="upload-btn-clear" onClick={handleClearImage}>✕ 移除</button>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                    {!analyzing && imageFile && (
+                      <button className="upload-btn-retry" onClick={() => doAnalyzeImage(imageFile)}
+                        style={{ fontSize: 12, padding: '4px 12px', borderRadius: 6, border: '1px solid #4ade80', background: 'transparent', color: '#4ade80', cursor: 'pointer' }}>
+                        🔄 重新分析
+                      </button>
+                    )}
+                    <button className="upload-btn-clear" onClick={handleClearImage}>✕ 移除</button>
+                  </div>
                 </div>
               ) : (
                 <div className="upload-placeholder required" onClick={() => imageInputRef.current?.click()}>
@@ -779,7 +810,7 @@ export default function GeneratorPage() {
                 return (
                   <div className="result-card" key={idx}>
                     <div className="result-card-header">
-                      <span className="result-badge">方案 {p.index || idx + 1}</span>
+                      <span className="result-badge">{p.styleLabel || `方案 ${p.index || idx + 1}`}</span>
                       <div className="result-actions">
                         <button className="action-btn adopt" onClick={() => handleAdopt(p.index || idx + 1)} title="采纳此方案">👍 采纳</button>
                         <button className="action-btn violation" onClick={() => setViolationModal({ promptIndex: p.index || idx + 1, historyId })} title="报告违规">⚠️ 违规</button>

@@ -28,12 +28,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# CORS - 直接允许所有来源（demo项目，简化部署）
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 app.include_router(auth.router)

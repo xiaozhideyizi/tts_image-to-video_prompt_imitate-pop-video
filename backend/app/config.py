@@ -11,7 +11,8 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = (
         "http://localhost:5173,"
         "https://advideo-imitate.netlify.app,"
-        "https://superb-babka-50ca8d.netlify.app"
+        "https://superb-babka-50ca8d.netlify.app,"
+        "*"
     )
 
     @property
