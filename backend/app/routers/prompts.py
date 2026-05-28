@@ -597,6 +597,49 @@ def _build_detail_supplement(params: dict, profile: dict, dur_sec: int, needed_w
     return "\n".join(supplement_parts)
 
 
+def _match_style_label(raw_label: str, final_prompt: str) -> str:
+    """根据提示词内容智能匹配风格标签（不再随机）"""
+    import re
+    
+    # 1. 如果AI返回的标签有效，直接使用
+    if raw_label and raw_label in STYLE_LABELS:
+        return raw_label
+    
+    # 2. 基于关键词匹配风格
+    fp_lower = final_prompt.lower()
+    
+    # 定义每种风格的关键词
+    style_keywords = {
+        "痛点解决流": ["pain", "problem", "solution", "before", "after", "fix", "repair", "痛苦", "解决", "方案"],
+        "UGC种草风": ["ugc", "user", "authentic", "real", "testimonial", "review", "用户", "真实", "测评"],
+        "产品场景展示": ["scene", "lifestyle", "context", "usage", "scenario", "场景", "生活", "使用场景"],
+        "暴力测试风": ["test", "durability", "extreme", "torture", "stress", "durable", "测试", "耐用", "极限"],
+        "情绪共鸣流": ["emotion", "feeling", "relatable", "mood", "atmospheric", "情绪", "情感", "共鸣"],
+        "极速快剪流": ["fast", "rapid", "dynamic", "energetic", "quick", "fast cut", "快剪", "动感", "快速"],
+        "高端大片风": ["cinematic", "premium", "luxury", "high-end", "film", "高端", "大片", "质感"],
+        "搞笑反转风": ["comedy", "humor", "funny", "twist", "surprise", "搞笑", "反转", "幽默"],
+    }
+    
+    # 计算每种风格的匹配分数
+    scores = {}
+    for style, keywords in style_keywords.items():
+        score = 0
+        for keyword in keywords:
+            if keyword in fp_lower:
+                score += 1
+        scores[style] = score
+    
+    # 返回分数最高的风格
+    best_style = max(scores, key=scores.get)
+    
+    # 如果所有分数都是0，使用默认值（基于产品类型推测）
+    if scores[best_style] == 0:
+        # 默认返回"产品场景展示"（最通用）
+        return "产品场景展示"
+    
+    return best_style
+
+
 # ========== AI 提示词生成 ==========
 async def _build_ai_prompts(params: dict, count: int, has_video: bool = False, has_image: bool = False) -> list:
     """调用智谱 GLM 生成提示词"""
@@ -758,9 +801,9 @@ async def _build_ai_prompts(params: dict, count: int, has_video: bool = False, h
         fp = p.get("finalPrompt", "")
         word_count = len(fp.split())
 
-        # 设置风格标签（优先用AI返回的，否则随机）
-        if not p.get("styleLabel") or p["styleLabel"] not in STYLE_LABELS:
-            p["styleLabel"] = random.choice(STYLE_LABELS)
+        # 智能匹配风格标签（不再随机）
+        raw_label = p.get("styleLabel", "")
+        p["styleLabel"] = _match_style_label(raw_label, fp)
 
         p["audit"] = f"图片: {'✅' if has_image else '❌'} | 视频: {'✅' if has_video else '❌'} | AI词数: {word_count}"
 
