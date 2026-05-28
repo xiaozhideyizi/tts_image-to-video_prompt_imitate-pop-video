@@ -672,7 +672,6 @@ def _build_single_prompt(params: dict, index: int, has_video: bool = False, has_
         f"Format: {orientation} {ratio}, {resolution}, {duration}, 30fps, MP4.\n"
         f"Platform: {profile['label']} | {voice_tag} | {sub_tag}\n"
         f"Vibe: {vibe}\n"
-        f"Target duration: {duration} → Prompt must be DETAILED and COMPREHENSIVE ({target_words}+ words total).\n"
         f"Dynamic strategy: {dynamic_strategy}\n\n"
         f"=== TIME SEGMENT BREAKDOWN ===\n"
         f"{sections_text}\n\n"
