@@ -486,11 +486,14 @@ def _split_prompt_by_duration(final_prompt: str, duration_sec: int, video_model:
         end_s = offset + seg_dur
 
         segment_sections = []
+        # group2_sections 的键是相对时间 (减去了 unit)，用相对范围比较
+        rel_start = start_s - unit  # 此段的相对起始
+        rel_end = end_s - unit      # 此段的相对结束
         for time_range, content in sorted(group2_sections.items(), key=lambda x: int(x[0].split('-')[0])):
             tr_start = int(time_range.split('-')[0])
             tr_end_str = time_range.split('-')[1]
             tr_end = int(tr_end_str) if tr_end_str else 0
-            if tr_start >= start_s and tr_end <= end_s:
+            if tr_start >= rel_start and tr_end <= rel_end:
                 segment_sections.append(content)
 
         bullet_lines = []
@@ -502,7 +505,7 @@ def _split_prompt_by_duration(final_prompt: str, duration_sec: int, video_model:
                 tmatch = re.match(r'\[?(\d+)\s*-\s*(\d+)s\]?\s*[:：]?(.*)', l)
                 if tmatch:
                     bullet_lines.append(f"- [{tmatch.group(1)}s-{tmatch.group(2)}s]: {tmatch.group(3).strip()}")
-                elif l.starts_with('-') or l.starts_with('*'):
+                elif l.startswith('-') or l.startswith('*'):
                     bullet_lines.append(l)
                 else:
                     bullet_lines.append(f"- {l}")
