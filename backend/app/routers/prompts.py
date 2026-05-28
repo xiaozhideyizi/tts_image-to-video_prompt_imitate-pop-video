@@ -310,6 +310,257 @@ STYLE_LABELS = [
     "搞笑反转风",
 ]
 
+# 每种风格的差异化模板（镜头/动作/氛围/结构）
+STYLE_TEMPLATES = {
+    "痛点解决流": {
+        "camera_options": ["Close-up reveal shot", "Slow zoom into problem area", "Before/after split screen", "Eye-level documentary style"],
+        "physics_options": ["Product transforms the problematic state", "Visual crack/break effect showing old vs new", "Dissolve transition from chaos to order"],
+        "action_options": ["Show the PROBLEM first, then product arrives as SOLUTION", "Product swoops in to fix the broken/difficult situation", "Side-by-side comparison: life without product vs with product"],
+        "hook_template": (
+            "OPEN with a RELATABLE PAIN POINT that viewers instantly recognize.\n"
+            "  - Camera: slow zoom into a frustrated face or problematic scene.\n"
+            "  - On-screen text overlays the problem in bold font.\n"
+            "  - Dramatic pause, then {product_name} enters frame as the solution.\n"
+            "  - Lighting shifts from cold/dim (problem) to warm/bright (solution)."
+        ),
+        "showcase_template": (
+            "  DETAILED SHOWCASE ({t_start}-{t_end}s):\n"
+            "  - Camera: smooth demonstration of {product_name} solving the problem.\n"
+            "  - Action: product is used in real scenario, visible BEFORE and AFTER improvement.\n"
+            "  - {market_actor} shows genuine relief and satisfaction after use.\n"
+            "  - Split-screen or wipe transition: problem state → solved state.\n"
+            "  - Product features that solve the pain are highlighted with text overlays.\n"
+            "  - Emotional music builds from tension to resolution."
+        ),
+        "closing_template": (
+            "  DETAILED CLOSING ({s2_end}-{dur_sec}s):\n"
+            "  - Camera: product held up triumphantly, golden-hour backlight.\n"
+            "  - Action: satisfied user nod, thumbs-up, product center frame.\n"
+            "  - On-screen text: problem solved, call-to-action overlay.\n"
+            "  - Final frame: product hero shot, before/after side by side."
+        ),
+        "style_tags": "problem-solution narrative, emotional arc, before-after, relatable pain point, testimonial energy",
+    },
+    "UGC种草风": {
+        "camera_options": ["Handheld selfie angle", "POV first-person view", "Vlog-style front camera", "Phone-held casual angle"],
+        "physics_options": ["Natural ambient movement", "Casual product toss and catch", "Unboxing moment with real reactions"],
+        "action_options": ["Casual unboxing with genuine surprise reactions", "POV walkthrough showing product in daily life", "Friend-style recommendation, speaking directly to camera"],
+        "hook_template": (
+            "UGC AUTHENTIC OPENING — as if a real user discovered this product.\n"
+            "  - Camera: handheld, slight shake, selfie angle or POV.\n"
+            "  - Action: genuine surprise expression, product reveal like unboxing.\n"
+            "  - Natural lighting (no studio), real environment like bedroom/living room.\n"
+            "  - On-screen casual text: \"wait, you NEED this\" or \"obsessed lately\".\n"
+            "  - No professional polish — imperfect framing adds authenticity."
+        ),
+        "showcase_template": (
+            "  DETAILED SHOWCASE ({t_start}-{t_end}s):\n"
+            "  - Camera: handheld follow, product shown in ACTUAL daily use scenario.\n"
+            "  - Action: {market_actor} casually demonstrates, no scripted feel.\n"
+            "  - Quick cuts between different use moments (morning routine, commute, night out).\n"
+            "  - Genuine reactions: wow face, nodding, showing to a friend off-camera.\n"
+            "  - Close-ups are casual, not studio-lit. Natural textures and real environment.\n"
+            "  - BGM: trending lo-fi or viral sound, NOT cinematic."
+        ),
+        "closing_template": (
+            "  DETAILED CLOSING ({s2_end}-{dur_sec}s):\n"
+            "  - Camera: product held up to camera, vlog-style closing.\n"
+            "  - Action: casual thumbs-up or heart gesture, natural smile.\n"
+            "  - On-screen: \"link in bio\" or \"go get yours\" in casual font.\n"
+            "  - Final frame: product in context, authentic lifestyle feel, no studio lighting."
+        ),
+        "style_tags": "UGC, authentic, vlog-style, unboxing, casual, relatable, no studio, real user feel",
+    },
+    "产品场景展示": {
+        "camera_options": ["Smooth orbit around product", "Product-centric steady cam", "Elegant dolly movement", "Cinematic product reveal"],
+        "physics_options": ["Wind blowing hair/fabric instantly", "Water droplets exploding around", "Smoke swirling from product"],
+        "action_options": ["Product rotates 360° on turntable", "Camera orbits revealing every angle", "Dynamic lighting shifts around product"],
+        "hook_template": (
+            "{camera} as {physics}. {action}.\n"
+            "  DETAILED HOOK (0-{s1_end}s):\n"
+            "  - Camera: {camera}, rapid approach to {product_name}.\n"
+            "  - Action: {action}, product revealed with {physics}.\n"
+            "  - {market_actor} appears with high energy, grabs attention in <2 seconds.\n"
+            "  - Product is positioned centrally, 1:1 ratio, no distortion.\n"
+            "  - Lighting: dramatic key light from top-right, rim light on product edges.\n"
+            "  - Transition: fast whip-pan into next segment."
+        ),
+        "showcase_template": (
+            "  DETAILED SHOWCASE ({t_start}-{t_end}s):\n"
+            "  - Camera: smooth orbit around product, revealing {pts_text}.\n"
+            "  - Action: product rotates 45°, close-up on key features.\n"
+            "  - {market_actor} demonstrates with swift confident movements.\n"
+            "  - Product texture and material MUST match reference image exactly.\n"
+            "  - Lighting: soft fill + rim, product appears premium and polished.\n"
+            "  - Motion: flowing transitions, no abrupt cuts."
+        ),
+        "closing_template": (
+            "  DETAILED CLOSING ({s2_end}-{dur_sec}s):\n"
+            "  - Camera: slow pull-back, epic reveal of {product_name} in perfect lighting.\n"
+            "  - Action: product settles into hero shot position, 1:1 ratio, center frame.\n"
+            "  - Dynamic slow-mo finale (0.5x speed), water/smoke particles swirl around product.\n"
+            "  - Brand imprint fades in bottom-right, call to action top-left.\n"
+            "  - Final frame holds for 1.5s, product image EXACTLY matches uploaded reference."
+        ),
+        "style_tags": "product showcase, cinematic movement, 4k, no static shots, commercial-grade rendering",
+    },
+    "暴力测试风": {
+        "camera_options": ["Impact cam angle", "Macro close-up on stress point", "Slow-motion crash camera", "Side-angle durability test view"],
+        "physics_options": ["Extreme force impact", "Waterproof submersion test", "Drop test from height", "Stress bending/twisting"],
+        "action_options": ["Product survives extreme impact test", "Product dropped/thrown but remains intact", "Product put through stress challenge"],
+        "hook_template": (
+            "EXTREME DURABILITY TEST — grab attention with SHOCKING impact.\n"
+            "  - Camera: fast cut to product being hit/dropped/stressed.\n"
+            "  - Action: product faces an extreme test in the first 2 seconds (drop, smash, water).\n"
+            "  - Slow-motion capture of impact moment, particles fly.\n"
+            "  - Screen shakes on impact, then freezes on product's intact state.\n"
+            "  - Bold on-screen text: \"WILL IT SURVIVE?\" in impact font."
+        ),
+        "showcase_template": (
+            "  DETAILED SHOWCASE ({t_start}-{t_end}s):\n"
+            "  - Camera: multiple angles of durability test (macro slow-mo on impact point).\n"
+            "  - Action: {product_name} put through 2-3 extreme tests, survives all.\n"
+            "  - {market_actor} applies force deliberately, then shows shock at product's resilience.\n"
+            "  - Close-up: product surface shows ZERO damage after extreme test.\n"
+            "  - Visual comparison with a competitor item that fails the same test.\n"
+            "  - Sound design: heavy impact sounds, then satisfying \"still intact\" moment."
+        ),
+        "closing_template": (
+            "  DETAILED CLOSING ({s2_end}-{dur_sec}s):\n"
+            "  - Camera: slow-mo of final extreme test, product emerges unscathed.\n"
+            "  - Action: product slammed, dropped, crushed — then revealed PERFECT.\n"
+            "  - On-screen: \"100% SURVIVED\" stamp animation.\n"
+            "  - Final frame: product in hero shot with crack/impact overlay showing zero damage."
+        ),
+        "style_tags": "durability test, extreme stress, drop test, slow-mo impact, shock value, tough, indestructible",
+    },
+    "情绪共鸣流": {
+        "camera_options": ["Soft focus emotional close-up", "Slow dolly with shallow DOF", "Warm golden hour lighting", "Intimate eye-level angle"],
+        "physics_options": ["Soft particle drift (golden dust/sakura petals)", "Gentle bokeh light circles", "Slow-motion fabric/hair movement in wind"],
+        "action_options": ["Emotional moment of daily life, product as companion", "Product appears in a meaningful life moment", "Soft transition from feeling to solution"],
+        "hook_template": (
+            "EMOTIONAL OPENING — connect with viewer's feelings FIRST.\n"
+            "  - Camera: slow, intimate close-up on a relatable emotional moment.\n"
+            "  - Action: person in daily life场景 (tired morning, busy work, missing home).\n"
+            "  - Lighting: warm, golden-hour feel, soft shadows, dreamy bokeh.\n"
+            "  - Music: gentle piano or acoustic, builds emotional resonance.\n"
+            "  - Subtle text: emotional statement viewers relate to (\"some days you just need...\")"
+        ),
+        "showcase_template": (
+            "  DETAILED SHOWCASE ({t_start}-{t_end}s):\n"
+            "  - Camera: smooth slow movement, {product_name} shown as emotional companion.\n"
+            "  - Action: {market_actor} uses product in a warm, personal moment.\n"
+            "  - Soft transitions between life moments, product is always present.\n"
+            "  - Close-ups on face showing genuine contentment/smile with product.\n"
+            "  - Warm color grading, slightly desaturated, film-grain texture.\n"
+            "  - Ambient sounds: soft breeze, gentle laughter, nature."
+        ),
+        "closing_template": (
+            "  DETAILED CLOSING ({s2_end}-{dur_sec}s):\n"
+            "  - Camera: slow pull-back from intimate moment to lifestyle wide shot.\n"
+            "  - Action: {market_actor} holds product close, warm satisfied expression.\n"
+            "  - Golden hour sunset/glow lighting wraps the scene.\n"
+            "  - On-screen: emotional tagline matching the opening feeling.\n"
+            "  - Final frame: product in soft warm light, gentle particle drift."
+        ),
+        "style_tags": "emotional resonance, warm tone, lifestyle, intimate, golden hour, soft bokeh, feel-good",
+    },
+    "极速快剪流": {
+        "camera_options": ["Hyper-fast snap zoom", "Whip pan rapid cuts", "Jump cut energy shots", "Flash frame transitions"],
+        "physics_options": ["Speed blur trails", "Glitch distortion effects", "Beat-synced visual pulses", "Flash/strobe light sync"],
+        "action_options": ["Product appears in rapid-fire quick cuts", "Beat-synced reveal sequence", "Fast montage of product in action"],
+        "hook_template": (
+            "HYPERFAST OPENING — zero attention span, GRAB in 0.5 seconds.\n"
+            "  - Camera: rapid snap zoom, product FILLS frame instantly.\n"
+            "  - Action: flash-cut sequence (0.3s per cut), product from 5 angles in 2 seconds.\n"
+            "  - Glitch/beat-sync visual effects on every cut.\n"
+            "  - Bold on-screen text flashes: product name, key feature, price.\n"
+            "  - BGM drops HARD beat in first second. Energy MAXIMUM from frame 1."
+        ),
+        "showcase_template": (
+            "  DETAILED SHOWCASE ({t_start}-{t_end}s):\n"
+            "  - Camera: rapid cuts, 0.5-1s per shot, no slow moments.\n"
+            "  - Action: {product_name} shown in 4-6 quick scenarios, beat-synced.\n"
+            "  - {market_actor} moves fast, energetic, in constant motion.\n"
+            "  - Every cut has a different angle, zoom level, or motion direction.\n"
+            "  - Speed ramps: slow-mo on impact moments (0.3s), then back to hyper speed.\n"
+            "  - Text overlays flash in sync with beats, feature callouts."
+        ),
+        "closing_template": (
+            "  DETAILED CLOSING ({s2_end}-{dur_sec}s):\n"
+            "  - Camera: final rapid montage, then FREEZE on hero product shot.\n"
+            "  - Action: all motion stops, product hero shot with beat drop silence.\n"
+            "  - On-screen: CTA and price flash in bold impact font.\n"
+            "  - Final frame: product dead center, high contrast, no movement — pure impact."
+        ),
+        "style_tags": "hyper-fast, beat-sync, quick cuts, glitch effects, energy max, rapid montage, no slow moments",
+    },
+    "高端大片风": {
+        "camera_options": ["Cinematic crane shot", "Aerial drone reveal", "Anamorphic wide lens", "Steadicam slow sweep"],
+        "physics_options": ["Volumetric light rays through atmosphere", "Elegant particle systems (gold dust/crystal)", "Cinematic depth of field bokeh"],
+        "action_options": ["Elegant slow cinematic reveal, product enters from darkness", "Dramatic lighting sweep across product surface", "Product materializes from particles/light"],
+        "hook_template": (
+            "CINEMATIC BLOCKBUSTER OPENING — think Apple-level production.\n"
+            "  - Camera: slow, majestic crane or drone sweep revealing the scene.\n"
+            "  - Action: product emerges from darkness/light, dramatic slow reveal.\n"
+            "  - Lighting: volumetric god rays, anamorphic lens flares, premium grading.\n"
+            "  - Sound: orchestral swell or cinematic score, deep bass.\n"
+            "  - Minimal text: one elegant word or product name in thin luxury font."
+        ),
+        "showcase_template": (
+            "  DETAILED SHOWCASE ({t_start}-{t_end}s):\n"
+            "  - Camera: cinematic Steadicam, {product_name} shown in IMAX-level detail.\n"
+            "  - Action: elegant 360° reveal, each angle lit differently (warm → cool → gold).\n"
+            "  - {market_actor} interacts with refined, deliberate gestures — no rushing.\n"
+            "  - Macro shots: material texture in 8K-level detail, light dances on surface.\n"
+            "  - Slow, deliberate camera moves. Every frame is a wallpaper.\n"
+            "  - Color grading: cinematic teal-orange or monochrome gold."
+        ),
+        "closing_template": (
+            "  DETAILED CLOSING ({s2_end}-{dur_sec}s):\n"
+            "  - Camera: epic slow pull-back to wide establishing shot.\n"
+            "  - Action: product floating in center, particles converge, brand logo materializes.\n"
+            "  - Orchestral crescendo, then silence on final frame.\n"
+            "  - On-screen: minimal luxury branding, thin font, negative space.\n"
+            "  - Final frame: product hero shot, museum-quality lighting, no text."
+        ),
+        "style_tags": "cinematic, luxury, premium, IMAX quality, anamorphic, volumetric light, blockbuster, Apple-level",
+    },
+    "搞笑反转风": {
+        "camera_options": ["Comedic reaction shot", "Exaggerated perspective tilt", "Mock-serious dramatic angle", "Quick zoom on punchline"],
+        "physics_options": ["Comedic flop/bounce effect", "Cartoon-style impact distortion", "Slapstick timing with pause", "Exaggerated slow-mo on funny moment"],
+        "action_options": ["Serious setup then ABSURD twist reveal", "Product appears in ridiculous unexpected context", "Deadpan humor with product as punchline"],
+        "hook_template": (
+            "COMEDIC SETUP — start SERIOUS so the twist hits harder.\n"
+            "  - Camera: dramatic, serious movie trailer vibe — viewers think it's real.\n"
+            "  - Action: intense buildup, dramatic music, serious voiceover.\n"
+            "  - Everything suggests a dramatic/serious context.\n"
+            "  - On-screen: dramatic text that will be subverted by the twist.\n"
+            "  - Hold the serious tone for 3-5 seconds to build maximum contrast."
+        ),
+        "showcase_template": (
+            "  DETAILED SHOWCASE ({t_start}-{t_end}s):\n"
+            "  - Camera: deadpan reaction shots, exaggerated product use.\n"
+            "  - Action: THE TWIST — {product_name} appears in absurd/funny context.\n"
+            "  - {market_actor} does a double-take reaction, comedic timing is everything.\n"
+            "  - Sound effect: record scratch or comedic timing beat on the reveal.\n"
+            "  - Quick cuts between serious setup and ridiculous product moment.\n"
+            "  - BGM shifts from dramatic → comedic instantly on the twist."
+        ),
+        "closing_template": (
+            "  DETAILED CLOSING ({s2_end}-{dur_sec}s):\n"
+            "  - Camera: final punchline shot, freeze on comedic moment.\n"
+            "  - Action: {market_actor} holds product with deadpan face, absurd context behind.\n"
+            "  - On-screen: funny tagline or comedic CTA.\n"
+            "  - Final frame: meme-ready screenshot moment, product + joke."
+        ),
+        "style_tags": "comedy, twist, humor, meme-ready, punchline, deadpan, absurd contrast, viral potential",
+    },
+}
+
+# 默认模板（当风格不在 STYLE_TEMPLATES 中时使用）
+DEFAULT_STYLE_TEMPLATE = STYLE_TEMPLATES["产品场景展示"]
+
 
 # ========== 两段式分组分段逻辑 ==========
 def _split_prompt_by_duration(final_prompt: str, duration_sec: int, video_model: str = "seedance", supplement: str = "") -> list:
@@ -530,10 +781,17 @@ def _split_prompt_by_duration(final_prompt: str, duration_sec: int, video_model:
 
 
 # ========== 本地提示词生成 ==========
-def _build_single_prompt(params: dict, index: int, has_video: bool = False, has_image: bool = False) -> dict:
-    camera = random.choice(DYNAMIC_STARTERS["camera"])
-    physics = random.choice(DYNAMIC_STARTERS["physics"])
-    action = random.choice(DYNAMIC_STARTERS["action"])
+def _build_single_prompt(params: dict, index: int, has_video: bool = False, has_image: bool = False, assigned_label: str = "") -> dict:
+    # 使用预分配的风格标签（如果有的话），否则从未使用的标签中随机选一个
+    if assigned_label and assigned_label in STYLE_TEMPLATES:
+        style_label = assigned_label
+    else:
+        style_label = random.choice(STYLE_LABELS)
+
+    tmpl = STYLE_TEMPLATES.get(style_label, DEFAULT_STYLE_TEMPLATE)
+    camera = random.choice(tmpl["camera_options"])
+    physics = random.choice(tmpl["physics_options"])
+    action = random.choice(tmpl["action_options"])
 
     points = [p.strip() for p in params["selling_points"].split(",") if p.strip()]
     market_actor = MARKET_ACTORS.get(params["target_market"], MARKET_ACTORS["china"])
@@ -592,46 +850,34 @@ def _build_single_prompt(params: dict, index: int, has_video: bool = False, has_
             "- Any AI-generated product that deviates from the uploaded image is STRICTLY FORBIDDEN.\n"
         )
 
-    # 构建 hook 段（详细分镜描述）
+    # 构建 hook 段（使用风格模板）
     hook_content = f"{video_style_note}{subtitle_hint}"
     if not vs_config["voiceover"]:
         hook_content += "NO voiceover. Visual storytelling only. "
-    hook_content += (
-        f"{camera} as {physics}. {action}. \n"
-        f"  DETAILED HOOK (0-{s1_end}s): \n"
-        f"  - Camera: {camera}, rapid approach to {params['product_name']}.\n"
-        f"  - Action: {action}, product revealed with {physics}.\n"
-        f"  - {market_actor} appears with high energy, grabs attention in <2 seconds.\n"
-        f"  - Product is positioned centrally, 1:1 ratio, no distortion.\n"
-        f"  - Lighting: dramatic key light from top-right, rim light on product edges.\n"
-        f"  - Transition: fast whip-pan into next segment.\n"
+    hook_content += tmpl["hook_template"].format(
+        camera=camera, physics=physics, action=action,
+        s1_end=s1_end, product_name=params['product_name'],
+        market_actor=market_actor,
     )
 
-    # showcase 段（详细分镜描述）
+    # showcase 段（使用风格模板）
     showcase_content = ""
+    pts_text = ', '.join(points[:3]) if points else 'premium quality'
     for seg_idx, (sk, st) in enumerate(sections.items()):
         if st.startswith("showcase"):
             t_start = sk.split('-')[0]
             t_end = sk.split('-')[1].replace('s', '')
-            pts_text = ', '.join(points[:3]) if points else 'premium quality'
-            showcase_content += (
-                f"  DETAILED SHOWCASE ({t_start}-{t_end}s):\n"
-                f"  - Camera: smooth orbit around product, revealing {pts_text}.\n"
-                f"  - Action: product rotates 45°, close-up on key features.\n"
-                f"  - {market_actor} demonstrates with swift confident movements.\n"
-                f"  - Product texture and material MUST match reference image exactly.\n"
-                f"  - Lighting: soft fill + rim, product appears premium and polished.\n"
-                f"  - Motion: flowing transitions, no abrupt cuts, 不超过3个镜头.\n"
+            showcase_content += tmpl["showcase_template"].format(
+                t_start=t_start, t_end=t_end,
+                product_name=params['product_name'],
+                market_actor=market_actor, pts_text=pts_text,
             )
 
-    # closing 段（详细分镜描述）
-    closing_content = (
-        f"  DETAILED CLOSING ({s2_end}-{dur_sec}s):\n"
-        f"  - Camera: slow pull-back, epic reveal of {params['product_name']} in perfect lighting.\n"
-        f"  - Action: product settles into hero shot position, 1:1 ratio, center frame.\n"
-        f"  - Dynamic slow-mo finale (0.5x speed), water/smoke particles swirl around product.\n"
-        f"  - Brand imprint fades in bottom-right, call to action top-left.\n"
-        f"  - Final frame holds for 1.5s, product image EXACTLY matches uploaded reference.\n"
+    # closing 段（使用风格模板）
+    closing_content = tmpl["closing_template"].format(
+        s2_end=s2_end, dur_sec=dur_sec,
+        product_name=params['product_name'],
+        market_actor=market_actor,
     )
 
     # 组装分段（每个时间段都有详细分镜描述）
@@ -668,9 +914,9 @@ def _build_single_prompt(params: dict, index: int, has_video: bool = False, has_
     # 计算目标词数（15s=500词，按比例调整）
     target_words = max(500, int(dur_sec * 33))  # 约33词/秒
 
-    # 先构建 final_prompt（不含 style_label，避免 f-string 反斜杠错误）
+    # 先构建 final_prompt（不含 style_label 前缀）
+    style_tags_text = tmpl.get("style_tags", "commercial-grade, high motion, 4k")
     final_prompt = (
-        "【产品场景展示】\n"
         f"{image_note}"
         f"Format: {orientation} {ratio}, {resolution}, {duration}, 30fps, MP4.\n"
         f"Platform: {profile['label']} | {voice_tag} | {sub_tag}\n"
@@ -682,15 +928,13 @@ def _build_single_prompt(params: dict, index: int, has_video: bool = False, has_
         f"- Product MUST appear EXACTLY as in the uploaded reference image.\n"
         f"- 1:1 ratio, no distortion, no creative alteration of product shape/color/logo.\n"
         f"- Animate ONLY the product's presentation (rotation, lighting, particles), NOT its appearance.\n\n"
-        f"Style tags: High motion, cinematic movement, 4k, no static shots, commercial-grade rendering.\n"
+        f"Style tags: {style_tags_text}.\n"
         f"CRITICAL: All human figures must be ORIGINAL, locally adapted for {params['target_market']} market. "
         f"Never copy reference video people.\n"
         f"FINAL CHECK: Before rendering verify product image matches uploaded reference 1:1. If not, regenerate."
     )
 
-    # 根据提示词内容智能匹配风格标签
-    style_label = _match_style_label("产品场景展示", final_prompt)
-    # 把智能匹配的标签拼到 final_prompt 前面（用 + 拼接，避免 f-string 反斜杠错误）
+    # 使用预分配的风格标签拼到 final_prompt 前面
     final_prompt = "【" + style_label + "】\n" + final_prompt
 
     # 分组分段（按视频模型能力）
@@ -1201,7 +1445,10 @@ async def generate_prompts(
             print(f"[AI TIMEOUT] 智谱API响应超时（90s），回退本地模式")
             traceback.print_exc()
             try:
-                prompts = [_build_single_prompt(params, i, has_video, has_image) for i in range(count)]
+                assigned_labels = random.sample(STYLE_LABELS, min(count, len(STYLE_LABELS)))
+                while len(assigned_labels) < count:
+                    assigned_labels.append(random.choice(STYLE_LABELS))
+                prompts = [_build_single_prompt(params, i, has_video, has_image, assigned_label=assigned_labels[i]) for i in range(count)]
                 print(f"[FALLBACK] 本地生成成功，共{len(prompts)}条（AI超时已自动回退）")
             except Exception as e2:
                 import traceback
@@ -1213,7 +1460,10 @@ async def generate_prompts(
             print(f"[AI ERROR] {e}")
             traceback.print_exc()
             try:
-                prompts = [_build_single_prompt(params, i, has_video, has_image) for i in range(count)]
+                assigned_labels = random.sample(STYLE_LABELS, min(count, len(STYLE_LABELS)))
+                while len(assigned_labels) < count:
+                    assigned_labels.append(random.choice(STYLE_LABELS))
+                prompts = [_build_single_prompt(params, i, has_video, has_image, assigned_label=assigned_labels[i]) for i in range(count)]
                 print(f"[FALLBACK] 本地生成成功，共{len(prompts)}条（AI失败已自动回退）")
             except Exception as e2:
                 import traceback
@@ -1224,7 +1474,10 @@ async def generate_prompts(
         if use_ai and not settings.ZHIPUAI_API_KEY:
             print(f"[WARN] 用户选择AI模式但ZHIPUAI_API_KEY未配置，使用本地模式")
         try:
-            prompts = [_build_single_prompt(params, i, has_video, has_image) for i in range(count)]
+            assigned_labels = random.sample(STYLE_LABELS, min(count, len(STYLE_LABELS)))
+                while len(assigned_labels) < count:
+                    assigned_labels.append(random.choice(STYLE_LABELS))
+                prompts = [_build_single_prompt(params, i, has_video, has_image, assigned_label=assigned_labels[i]) for i in range(count)]
             print(f"[GENERATE] 本地生成成功，共{len(prompts)}条")
         except Exception as e:
             import traceback
