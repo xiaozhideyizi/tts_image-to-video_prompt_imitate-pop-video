@@ -1514,9 +1514,9 @@ async def generate_prompts(
             print(f"[WARN] 用户选择AI模式但ZHIPUAI_API_KEY未配置，使用本地模式")
         try:
             assigned_labels = random.sample(STYLE_LABELS, min(count, len(STYLE_LABELS)))
-                while len(assigned_labels) < count:
-                    assigned_labels.append(random.choice(STYLE_LABELS))
-                prompts = [_build_single_prompt(params, i, has_video, has_image, assigned_label=assigned_labels[i]) for i in range(count)]
+            while len(assigned_labels) < count:
+                assigned_labels.append(random.choice(STYLE_LABELS))
+            prompts = [_build_single_prompt(params, i, has_video, has_image, assigned_label=assigned_labels[i]) for i in range(count)]
             print(f"[GENERATE] 本地生成成功，共{len(prompts)}条")
         except Exception as e:
             import traceback
