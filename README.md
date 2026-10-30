@@ -5,7 +5,7 @@
 ### AI驱动的短视频提示词生成器 — 上传素材，一键生成爆款视频提示词
 
 [![Live Demo](https://img.shields.io/badge/🚀_在线体验-Live_Demo-blue?style=for-the-badge)](https://advideo-imitate.netlify.app)
-[![Backend API](https://img.shields.io/badge/📖_API文档-Swagger-green?style=flat-square)](https://incredible-alignment-production-4ba5.up.railway.app/docs)
+[![Backend API](https://img.shields.io/badge/📖_API文档-Swagger-green?style=flat-square)](https://advideo-backend.onrender.com/docs)
 [![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 
 </div>
@@ -197,7 +197,7 @@ npm run build
 | GET | `/api/prompts/share/{token}` | 查看分享（无需登录） |
 | GET | `/health` | 健康检查 |
 
-完整文档：[Swagger UI](https://incredible-alignment-production-4ba5.up.railway.app/docs)
+完整文档：[Swagger UI](https://advideo-backend.onrender.com/docs)
 
 ## 🤝 贡献
 
