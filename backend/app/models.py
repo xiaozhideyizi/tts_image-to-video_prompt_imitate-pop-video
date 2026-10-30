@@ -38,10 +38,10 @@ class PromptHistory(Base):
 
     # 文件存储（二进制存 PostgreSQL）
     video_data = Column(LargeBinary, nullable=True)
-    video_filename = Column(String(255), nullable=True)
+    video_filename = Column(Text, nullable=True)
     video_content_type = Column(String(100), nullable=True)
     image_data = Column(LargeBinary, nullable=True)
-    image_filename = Column(String(255), nullable=True)
+    image_filename = Column(Text, nullable=True)
     image_content_type = Column(String(100), nullable=True)
 
     # 评测指标

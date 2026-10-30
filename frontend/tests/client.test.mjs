@@ -10,13 +10,17 @@ async function loadClient(url = '') {
   }
   globalThis.window = { location: { href: '/login' } }
   const result = await build({
-    entryPoints: ['src/api/client.js'], bundle: true, write: false,
+    stdin: {
+      contents: "export { default } from './src/api/client.js'; export { promptApi } from './src/api/index.js'",
+      resolveDir: process.cwd(),
+    },
+    bundle: true, write: false,
     format: 'esm', platform: 'browser',
     define: { 'import.meta.env.VITE_API_URL': JSON.stringify(url) },
   })
   const source = result.outputFiles[0].text + `\n// ${Math.random()}`
-  const { default: api } = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`)
-  return { api, values }
+  const { default: api, promptApi } = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`)
+  return { api, promptApi, values }
 }
 
 test('后端地址支持域名、/api 和同源代理', async () => {
@@ -53,4 +57,19 @@ test('后端不可用时保留登录凭据', async () => {
   api.defaults.adapter = config => Promise.reject({ config, response: { status: 503 } })
   await assert.rejects(api.get('/prompts/history'))
   assert.equal(values.get('token'), 'saved-token')
+})
+
+test('AI 状态检查和生成请求使用新后端配置', async () => {
+  const { api, promptApi } = await loadClient('https://new-backend.example.com')
+  const calls = []
+  api.defaults.adapter = async config => {
+    calls.push(config)
+    return { status: 200, data: {}, headers: {}, config }
+  }
+  await promptApi.checkAI()
+  await promptApi.generate(new FormData())
+  assert.equal(calls[0].baseURL, 'https://new-backend.example.com/api')
+  assert.equal(calls[0].url, '/prompts/check-ai')
+  assert.equal(calls[1].baseURL, calls[0].baseURL)
+  assert.equal(calls[1].timeout, 240000)
 })

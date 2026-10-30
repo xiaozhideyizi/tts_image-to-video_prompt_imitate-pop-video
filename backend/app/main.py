@@ -1,15 +1,24 @@
 import logging
 import asyncio
+import os
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from sqlalchemy import text
 from app.database import init_db, engine
 from app.routers import auth, prompts
+from app.storage import check_storage
+from app.config import settings
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if os.getenv("RENDER") == "true":
+        if settings.database_url.startswith("sqlite") or settings.STORAGE_BACKEND != "s3":
+            raise RuntimeError("Render 免费实例必须配置外部 PostgreSQL 和 S3 对象存储")
+        if settings.SECRET_KEY in {"dev-secret-key-change-me", "change-me-in-production", ""}:
+            raise RuntimeError("请为 Render 配置独立的 SECRET_KEY")
+    await check_storage()
     # 数据库不可用时让部署明确失败，避免一个无法登录的实例被判定健康。
     await init_db()
     app.state.database_ready = True

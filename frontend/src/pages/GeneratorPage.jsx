@@ -168,11 +168,8 @@ export default function GeneratorPage() {
   useEffect(() => {
     promptApi.getStats().then(res => setStats(res.data)).catch(() => {})
     // 检查 AI 是否可用
-    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    const base = isLocal ? '/api' : 'https://incredible-alignment-production-4ba5.up.railway.app/api'
-    fetch(`${base}/prompts/check-ai`)
-      .then(r => r.json())
-      .then(d => setAiAvailable(d.ai_available))
+    promptApi.checkAI()
+      .then(res => setAiAvailable(res.data.ai_available))
       .catch(() => setAiAvailable(false))
   }, [])
 

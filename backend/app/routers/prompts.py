@@ -3,52 +3,18 @@ import secrets
 import random
 import base64
 import re
-import os
-import uuid
 import asyncio
 from typing import Optional, Dict, List, Any
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
-from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from app.database import get_db
 from app import models
 from app.auth import get_current_user
 from app.config import settings
+from app.storage import save_uploaded_file, uploaded_file_response
 
 router = APIRouter(prefix="/api/prompts", tags=["prompts"])
-
-# ========== 文件存储（本地文件系统，避免数据库 BYTEA 存大文件导致500）==========
-UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "/tmp/uploads")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-
-def _save_uploaded_file(file_bytes: bytes, filename: str, content_type: str) -> Dict:
-    """保存上传文件到本地磁盘，数据库只存JSON元信息"""
-    ext = os.path.splitext(filename or "file")[1] or ".bin"
-    file_id = uuid.uuid4().hex[:12]
-    safe_name = f"{file_id}{ext}"
-    file_path = os.path.join(UPLOAD_DIR, safe_name)
-    with open(file_path, "wb") as f:
-        f.write(file_bytes)
-    print(f"[FILE SAVE] {filename} -> {safe_name} ({len(file_bytes)} bytes)")
-    return {
-        "file_path": file_path,
-        "file_id": file_id,
-        "filename": filename,
-        "content_type": content_type,
-        "size": len(file_bytes),
-    }
-
-
-def _read_saved_file(file_meta: Dict) -> Optional[bytes]:
-    """从本地磁盘读取文件"""
-    path = file_meta.get("file_path")
-    if path and os.path.exists(path):
-        with open(path, "rb") as f:
-            return f.read()
-    return None
-
 
 # ========== JSON 解析辅助函数 ==========
 def _parse_ai_json_response(raw: str) -> list:
@@ -1389,7 +1355,7 @@ async def check_ai_service():
     has_key = bool(settings.ZHIPUAI_API_KEY and settings.ZHIPUAI_API_KEY != "your-zhipuai-api-key-here")
     return {
         "ai_available": has_key,
-        "message": "AI分析服务已就绪" if has_key else "AI分析服务未配置，请在 Railway 环境变量中设置 ZHIPUAI_API_KEY",
+        "message": "AI分析服务已就绪" if has_key else "AI分析服务未配置，请在后端环境变量中设置 ZHIPUAI_API_KEY",
     }
 
 
@@ -1430,22 +1396,22 @@ async def generate_prompts(
     current_user: models.User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    # 读取上传文件 → 存到本地文件系统（不存数据库 BYTEA）
+    # 素材持久存入对象存储，数据库只记录元信息。
     video_meta = None
     image_meta = None
 
     if video:
-        video_bytes = await video.read()
+        video_bytes = await video.read(100 * 1024 * 1024 + 1)
         if len(video_bytes) > 100 * 1024 * 1024:
             raise HTTPException(status_code=400, detail="视频文件不能超过 100MB")
-        video_meta = _save_uploaded_file(video_bytes, video.filename or "video.mp4", video.content_type or "video/mp4")
+        video_meta = await save_uploaded_file(video_bytes, video.filename or "video.mp4", video.content_type or "video/mp4")
         print(f"[UPLOAD] 视频已保存: {video_meta['filename']} ({video_meta['size']} bytes)")
 
     if image:
-        image_bytes = await image.read()
+        image_bytes = await image.read(10 * 1024 * 1024 + 1)
         if len(image_bytes) > 10 * 1024 * 1024:
             raise HTTPException(status_code=400, detail="图片文件不能超过 10MB")
-        image_meta = _save_uploaded_file(image_bytes, image.filename or "image.jpg", image.content_type or "image/jpeg")
+        image_meta = await save_uploaded_file(image_bytes, image.filename or "image.jpg", image.content_type or "image/jpeg")
         print(f"[UPLOAD] 图片已保存: {image_meta['filename']} ({image_meta['size']} bytes)")
 
     has_video = video_meta is not None
@@ -1522,7 +1488,7 @@ async def generate_prompts(
             traceback.print_exc()
             raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
 
-    # 保存历史记录（文件存本地，数据库只存JSON元信息）
+    # 保存历史记录（数据库只存素材的 JSON 元信息）
     try:
         history = models.PromptHistory(
             user_id=current_user.id,
@@ -1562,7 +1528,7 @@ async def generate_prompts(
     return {"prompts": prompts, "history_id": history.id if history else None}
 
 
-# ========== 文件服务端点（从本地文件系统读取）==========
+# ========== 文件服务端点（校验归属后读取私有素材）==========
 @router.get("/history/{history_id}/video")
 async def get_history_video(
     history_id: int,
@@ -1583,14 +1549,7 @@ async def get_history_video(
         video_meta = json.loads(history.video_filename)
     except (TypeError, json.JSONDecodeError):
         raise HTTPException(status_code=404, detail="视频文件信息损坏")
-    file_bytes = _read_saved_file(video_meta)
-    if not file_bytes:
-        raise HTTPException(status_code=404, detail="视频文件已过期（服务重启后临时文件已清除）")
-    return Response(
-        content=file_bytes,
-        media_type=video_meta.get("content_type", "video/mp4"),
-        headers={"Content-Disposition": f"inline; filename={video_meta.get('filename', 'video.mp4')}"},
-    )
+    return await uploaded_file_response(video_meta)
 
 
 @router.get("/history/{history_id}/image")
@@ -1613,14 +1572,7 @@ async def get_history_image(
         image_meta = json.loads(history.image_filename)
     except (TypeError, json.JSONDecodeError):
         raise HTTPException(status_code=404, detail="图片文件信息损坏")
-    file_bytes = _read_saved_file(image_meta)
-    if not file_bytes:
-        raise HTTPException(status_code=404, detail="图片文件已过期（服务重启后临时文件已清除）")
-    return Response(
-        content=file_bytes,
-        media_type=image_meta.get("content_type", "image/jpeg"),
-        headers={"Content-Disposition": f"inline; filename={image_meta.get('filename', 'image.jpg')}"},
-    )
+    return await uploaded_file_response(image_meta)
 
 
 # ========== 评测端点 ==========

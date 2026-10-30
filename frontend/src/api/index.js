@@ -14,19 +14,20 @@ export const authApi = {
 }
 
 export const promptApi = {
+  checkAI: () => api.get('/prompts/check-ai'),
   // 获取选项配置
   getOptions: () => api.get('/prompts/options'),
 
   // AI分析产品图片
   analyzeImage: (formData) => api.post('/prompts/analyze-image', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
-    timeout: 60000,
+    timeout: 180000, // 包含免费后端唤醒及 AI 分析所需时间
   }),
 
   // 生成提示词（multipart/form-data，支持文件上传）
   generate: (formData) => api.post('/prompts/generate', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
-    timeout: 120000,  // 文件上传需更长超时
+    timeout: 240000,  // 包含免费后端唤醒、素材上传及 AI 生成所需时间
   }),
 
   // 历史记录
