@@ -3,6 +3,7 @@ dist/
 __pycache__/
 *.pyc
 .env
+.env.*.local
 *.db
 .vercel
 .vite

@@ -8,6 +8,13 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080  # 7 天
     DATABASE_URL: str = "sqlite+aiosqlite:///./app.db"
     ZHIPUAI_API_KEY: str = ""
+    STORAGE_BACKEND: str = "local"
+    UPLOAD_DIR: str = "/tmp/uploads"
+    S3_BUCKET: str = ""
+    AWS_ENDPOINT_URL_S3: str = ""
+    AWS_REGION: str = "us-east-2"
+    AWS_ACCESS_KEY_ID: str = ""
+    AWS_SECRET_ACCESS_KEY: str = ""
     CORS_ORIGINS: str = (
         "http://localhost:5173,"
         "https://advideo-imitate.netlify.app,"

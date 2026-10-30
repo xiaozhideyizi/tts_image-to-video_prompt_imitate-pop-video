@@ -13,3 +13,4 @@ pydantic-settings==2.5.2
 zhipuai>=2.1.5
 email-validator>=2.1
 greenlet>=3.0
+boto3>=1.36,<2
