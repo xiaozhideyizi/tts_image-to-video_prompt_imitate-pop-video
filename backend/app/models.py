@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean, LargeBinary
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, deferred
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -37,10 +37,10 @@ class PromptHistory(Base):
     share_token = Column(String(64), unique=True, nullable=True)
 
     # 文件存储（二进制存 PostgreSQL）
-    video_data = Column(LargeBinary, nullable=True)
+    video_data = deferred(Column(LargeBinary, nullable=True))
     video_filename = Column(Text, nullable=True)
     video_content_type = Column(String(100), nullable=True)
-    image_data = Column(LargeBinary, nullable=True)
+    image_data = deferred(Column(LargeBinary, nullable=True))
     image_filename = Column(Text, nullable=True)
     image_content_type = Column(String(100), nullable=True)
 

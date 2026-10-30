@@ -105,20 +105,22 @@ npm run dev
 
 ### 免费迁移：Render + Neon + Netlify
 
-现有 FastAPI 后端可迁移到 Render Free，账号与历史使用 Neon PostgreSQL，素材使用 Neon 私有对象存储。前端继续使用原 Netlify 站点。
+现有 FastAPI 后端可迁移到 Render Free，账号、历史和素材默认使用 Neon PostgreSQL 持久保存。前端继续使用原 Netlify 站点。素材支持切换到 S3 兼容对象存储。
 
-1. 在 Neon 免费套餐新建独立项目，选择支持对象存储的区域，例如 AWS Singapore。创建数据库和私有存储桶 `advideo-uploads`。Render 和 Neon 都只选择免费套餐。
+1. 在 Neon 免费套餐新建独立项目，例如 AWS Singapore。Render 和 Neon 都只选择免费套餐。默认的数据库素材模式不需要额外的存储凭据。
 2. 使用 Neon 的直连数据库 URL 配置 `DATABASE_URL`，保留 `sslmode=require`；应用会转换为 asyncpg 连接并验证 TLS 证书与主机名。
-3. 为应用创建当前分支的存储读写凭据，取得 `AWS_ENDPOINT_URL_S3`、`AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`，并配置 `AWS_REGION=ap-southeast-1`。素材桶保持私有，下载由后端校验登录和记录归属后代理。
-4. 在 Render 从本仓库的 `render.yaml` 创建免费 Web Service。该配置使用 `backend` 目录、Python 3.11、外部 PostgreSQL 及 `STORAGE_BACKEND=s3`，不会创建有期限的 Render 免费数据库。自动生成独立 `SECRET_KEY`，手动填写上述连接信息及原 `ZHIPUAI_API_KEY`。所有密钥只存服务端环境变量。
-5. 验证新后端 `/health` 返回 `{"status":"healthy","database":"ok"}`。数据库或对象存储初始化失败会阻止实例上线；Render 上禁止使用会丢数据的本地 SQLite 或临时素材目录。
+3. 默认配置 `STORAGE_BACKEND=database`，上传素材与历史记录在同一事务中存入现有二进制字段。账号、记录和素材共用 Neon 免费数据库的 1 GB 空间；历史列表不会加载大文件内容，单个视频上限仍为 100 MB。保存失败会明确报错。
+4. 在 Render 从本仓库的 `render.yaml` 创建免费 Web Service。该配置使用 `backend` 目录、Python 3.11、外部 PostgreSQL 及数据库素材模式，不会创建有期限的 Render 免费数据库。自动生成独立 `SECRET_KEY`，手动填写数据库连接信息及原 `ZHIPUAI_API_KEY`。所有密钥只存服务端环境变量。
+5. 验证新后端 `/health` 返回 `{"status":"healthy","database":"ok"}`。数据库初始化失败会阻止实例上线；Render 上禁止使用会丢数据的本地 SQLite 或临时素材目录。
 6. 将 Netlify 的 `VITE_API_URL` 改为新后端 HTTPS 地址，重新构建部署。可填写域名或以 `/api` 结尾的地址；登录、生成和 AI 状态检查均使用同一个配置。
 
 免费额度和休眠规则以平台控制台为准。Render 免费服务闲置 15 分钟后休眠，下次请求约需一分钟唤醒；本项目已给 AI 请求留出唤醒时间。不要把 Render 免费实例的本地文件系统用于持久存储。参考：[Render 免费服务](https://render.com/docs/free)、[Neon 免费额度](https://neon.com/pricing)、[Neon 对象存储](https://neon.com/docs/storage/get-started)。
 
 迁移到新空库后需要重新注册账号，旧 Railway 数据库和数据卷保留不动。只有在拿到原数据备份并确认导入目标后，才进行旧账号与历史迁移；不自动覆盖新记录，也不删除远程数据库。部署与初始化新数据库需要项目所有者授权。
 
-生成、个人历史、历史附件和图片分析接口需要有效登录；公开分享链接仍可免登录查看。新素材持久存储在对象存储中，历史表仅保存元信息。新库的素材元信息列使用 `TEXT`，支持较长的文件名。
+生成、个人历史、历史附件和图片分析接口需要有效登录；公开分享链接仍可免登录查看。新库的素材元信息列使用 `TEXT`，支持较长的文件名。
+
+若需要独立文件容量，可创建 Neon 私有存储桶 `advideo-uploads`，为应用创建当前分支的存储读写凭据，配置 `AWS_ENDPOINT_URL_S3`、`AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`、`S3_BUCKET`、`AWS_REGION`，再切换 `STORAGE_BACKEND=s3`。S3 模式会在启动时检查存储桶，素材下载仍由后端校验归属。数据库中已有素材可继续读取；切换前应确认存储服务与免费额度可用。
 
 本地回归验证（使用隔离的 SQLite 数据库，不连接线上数据库）：
 

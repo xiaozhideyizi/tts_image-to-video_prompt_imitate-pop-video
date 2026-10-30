@@ -1,4 +1,4 @@
-"""本地开发存磁盘；免费云主机使用私有 S3 兼容对象存储。"""
+"""本地开发存磁盘；云端使用 PostgreSQL 或私有 S3 兼容存储。"""
 import asyncio
 from functools import lru_cache
 from pathlib import Path
@@ -7,14 +7,14 @@ from uuid import uuid4
 
 from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import HTTPException
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse, Response
 
 from app.config import settings
 
 
 def validate_storage_config():
-    if settings.STORAGE_BACKEND not in {"local", "s3"}:
-        raise ValueError("STORAGE_BACKEND 必须为 local 或 s3")
+    if settings.STORAGE_BACKEND not in {"local", "database", "s3"}:
+        raise ValueError("STORAGE_BACKEND 必须为 local、database 或 s3")
     if settings.STORAGE_BACKEND == "s3":
         required = ("S3_BUCKET", "AWS_ENDPOINT_URL_S3", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY")
         missing = [name for name in required if not getattr(settings, name)]
@@ -52,7 +52,7 @@ async def check_storage():
     validate_storage_config()
     if settings.STORAGE_BACKEND == "s3":
         await asyncio.to_thread(_s3_client().head_bucket, Bucket=settings.S3_BUCKET)
-    else:
+    elif settings.STORAGE_BACKEND == "local":
         Path(settings.UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
 
 
@@ -60,7 +60,10 @@ async def save_uploaded_file(file_bytes: bytes, filename: str, content_type: str
     file_id = uuid4().hex
     # 对象键不使用用户提供的路径，文件名只作为显示元数据保存。
     meta = {"file_id": file_id, "filename": filename, "content_type": content_type, "size": len(file_bytes)}
-    if settings.STORAGE_BACKEND == "s3":
+    if settings.STORAGE_BACKEND == "database":
+        # 二进制内容由生成接口与历史记录在同一个数据库事务中保存。
+        meta.update(storage="database")
+    elif settings.STORAGE_BACKEND == "s3":
         key = f"uploads/{file_id}"
         try:
             await asyncio.to_thread(
@@ -86,9 +89,15 @@ def _stream_body(body):
         body.close()
 
 
-async def uploaded_file_response(meta: dict):
+async def uploaded_file_response(meta: dict, content=None):
     filename = meta.get("filename") or "file"
     content_type = meta.get("content_type") or "application/octet-stream"
+    if meta.get("storage") == "database":
+        if content is None:
+            raise HTTPException(status_code=404, detail="素材文件不存在")
+        return Response(content=content, media_type=content_type, headers={
+            "Content-Disposition": f"inline; filename*=UTF-8''{quote(filename, safe='')}"
+        })
     if meta.get("storage") == "s3":
         if settings.STORAGE_BACKEND != "s3" or meta.get("bucket") != settings.S3_BUCKET:
             raise HTTPException(status_code=503, detail="素材存储配置不匹配，请联系管理员")

@@ -19,14 +19,4 @@ services:
       - key: ZHIPUAI_API_KEY
         sync: false
       - key: STORAGE_BACKEND
-        value: s3
-      - key: S3_BUCKET
-        value: advideo-uploads
-      - key: AWS_ENDPOINT_URL_S3
-        sync: false
-      - key: AWS_REGION
-        value: ap-southeast-1
-      - key: AWS_ACCESS_KEY_ID
-        sync: false
-      - key: AWS_SECRET_ACCESS_KEY
-        sync: false
+        value: database

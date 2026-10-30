@@ -14,8 +14,8 @@ from app.config import settings
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if os.getenv("RENDER") == "true":
-        if settings.database_url.startswith("sqlite") or settings.STORAGE_BACKEND != "s3":
-            raise RuntimeError("Render 免费实例必须配置外部 PostgreSQL 和 S3 对象存储")
+        if settings.database_url.startswith("sqlite") or settings.STORAGE_BACKEND not in {"database", "s3"}:
+            raise RuntimeError("Render 免费实例必须配置外部 PostgreSQL 和持久素材存储")
         if settings.SECRET_KEY in {"dev-secret-key-change-me", "change-me-in-production", ""}:
             raise RuntimeError("请为 Render 配置独立的 SECRET_KEY")
     await check_storage()

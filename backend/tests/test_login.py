@@ -141,7 +141,7 @@ def test_render_rejects_ephemeral_database_and_files(service, monkeypatch):
     from app import main
 
     monkeypatch.setenv("RENDER", "true")
-    with pytest.raises(RuntimeError, match="外部 PostgreSQL 和 S3"):
+    with pytest.raises(RuntimeError, match="外部 PostgreSQL 和持久素材存储"):
         with TestClient(main.app):
             pass
 
@@ -249,3 +249,30 @@ def test_neon_s3_sdk_configuration_and_requests(service, monkeypatch):
     finally:
         client.close()
         storage._s3_client.cache_clear()
+
+
+def test_database_files_persist_and_history_does_not_load_blobs(service, monkeypatch):
+    from pathlib import Path
+    from sqlalchemy import inspect
+    from app import storage, models
+
+    monkeypatch.setattr(storage.settings, "STORAGE_BACKEND", "database")
+    owner = register(service, "database-owner")
+    stranger = register(service, "database-stranger")
+    files_before = set(Path(storage.settings.UPLOAD_DIR).iterdir())
+    generated = service.post("/api/prompts/generate", headers=owner,
+        data={"product_name": "保温杯", "count": "1", "use_ai": "false"},
+        files={"image": ("产品图.png", b"db-image", "image/png"), "video": ("参考.mp4", b"db-video", "video/mp4")})
+    assert generated.status_code == 200, generated.text
+    history_id = generated.json()["history_id"]
+    assert history_id is not None
+    assert set(Path(storage.settings.UPLOAD_DIR).iterdir()) == files_before
+    for media, content in [("image", b"db-image"), ("video", b"db-video")]:
+        url = f"/api/prompts/history/{history_id}/{media}"
+        assert service.get(url, headers=owner).content == content
+        assert service.get(url, headers=stranger).status_code == 404
+    history = service.get("/api/prompts/history", headers=owner)
+    assert history.status_code == 200
+    assert history.json()["items"][0]["id"] == history_id
+    assert inspect(models.PromptHistory).attrs.video_data.deferred
+    assert inspect(models.PromptHistory).attrs.image_data.deferred

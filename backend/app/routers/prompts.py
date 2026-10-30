@@ -1396,9 +1396,11 @@ async def generate_prompts(
     current_user: models.User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    # 素材持久存入对象存储，数据库只记录元信息。
+    # 根据配置持久保存素材；免费部署默认与历史记录一起存入 PostgreSQL。
     video_meta = None
     image_meta = None
+    video_bytes = None
+    image_bytes = None
 
     if video:
         video_bytes = await video.read(100 * 1024 * 1024 + 1)
@@ -1488,7 +1490,7 @@ async def generate_prompts(
             traceback.print_exc()
             raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
 
-    # 保存历史记录（数据库只存素材的 JSON 元信息）
+    # 数据库模式同时保存二进制素材；S3 模式仅记录素材元信息。
     try:
         history = models.PromptHistory(
             user_id=current_user.id,
@@ -1503,10 +1505,10 @@ async def generate_prompts(
             audio_option=audio_option,
             video_model=video_model,
             prompts_json=json.dumps(prompts, ensure_ascii=False),
-            video_data=None,  # 不再存BYTEA
+            video_data=video_bytes if settings.STORAGE_BACKEND == "database" else None,
             video_filename=json.dumps(video_meta, ensure_ascii=False) if video_meta else None,
             video_content_type=video_meta.get("content_type") if video_meta else None,
-            image_data=None,  # 不再存BYTEA
+            image_data=image_bytes if settings.STORAGE_BACKEND == "database" else None,
             image_filename=json.dumps(image_meta, ensure_ascii=False) if image_meta else None,
             image_content_type=image_meta.get("content_type") if image_meta else None,
             generated_count=len(prompts),
@@ -1522,6 +1524,8 @@ async def generate_prompts(
         print(f"[DB SAVE ERROR] {db_err}")
         traceback.print_exc()
         await db.rollback()
+        if settings.STORAGE_BACKEND == "database":
+            raise HTTPException(status_code=503, detail="历史与素材保存失败，请检查数据库空间或连接后重试")
         # 数据库保存失败仍返回结果，不阻断用户
         history = None
 
@@ -1549,7 +1553,13 @@ async def get_history_video(
         video_meta = json.loads(history.video_filename)
     except (TypeError, json.JSONDecodeError):
         raise HTTPException(status_code=404, detail="视频文件信息损坏")
-    return await uploaded_file_response(video_meta)
+    content = None
+    if video_meta.get("storage") == "database":
+        content = (await db.execute(select(models.PromptHistory.video_data).where(
+            models.PromptHistory.id == history_id,
+            models.PromptHistory.user_id == current_user.id,
+        ))).scalar_one_or_none()
+    return await uploaded_file_response(video_meta, content=content)
 
 
 @router.get("/history/{history_id}/image")
@@ -1572,7 +1582,13 @@ async def get_history_image(
         image_meta = json.loads(history.image_filename)
     except (TypeError, json.JSONDecodeError):
         raise HTTPException(status_code=404, detail="图片文件信息损坏")
-    return await uploaded_file_response(image_meta)
+    content = None
+    if image_meta.get("storage") == "database":
+        content = (await db.execute(select(models.PromptHistory.image_data).where(
+            models.PromptHistory.id == history_id,
+            models.PromptHistory.user_id == current_user.id,
+        ))).scalar_one_or_none()
+    return await uploaded_file_response(image_meta, content=content)
 
 
 # ========== 评测端点 ==========
