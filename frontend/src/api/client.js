@@ -1,11 +1,11 @@
 import axios from 'axios'
 
-// 生产环境：直连 Railway 后端
-// 开发环境：Vite proxy 转发到 localhost:8000
-const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-const apiBase = isLocalhost
-  ? '/api'
-  : 'https://incredible-alignment-production-4ba5.up.railway.app/api'
+// VITE_API_URL 可填写后端域名或以 /api 结尾的地址。
+// 未配置时走同源 /api，开发环境由 Vite 代理转发。
+const configuredUrl = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '')
+const apiBase = configuredUrl
+  ? (configuredUrl.endsWith('/api') ? configuredUrl : `${configuredUrl}/api`)
+  : '/api'
 
 const api = axios.create({
   baseURL: apiBase,
@@ -21,7 +21,8 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    const isAuthRequest = /^\/auth\/(token|register)$/.test(err.config?.url || '')
+    if (err.response?.status === 401 && !isAuthRequest) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       window.location.href = '/login'

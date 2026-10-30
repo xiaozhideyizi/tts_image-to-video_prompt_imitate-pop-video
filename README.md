@@ -103,6 +103,29 @@ npm run dev
 
 </details>
 
+### 登录服务恢复
+
+Netlify 前端能打开，而 Railway 地址返回 `Application not found` 时，需要先到 Railway 控制台检查原项目的服务、域名和账单状态。仅修改前端代码无法恢复已停止的后端。
+
+- 恢复原后端与原 PostgreSQL 服务，保留原 `DATABASE_URL` 和 `SECRET_KEY`。不要删除数据库或新建空库替代原库；需要变更远程数据库时先与项目所有者确认。
+- 后端 Root Directory 为 `backend`，启动命令为 `uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}`。`/health` 只有在数据库初始化及连接检查成功后才返回 200。
+- Netlify 的 `VITE_API_URL` 应设为可访问的后端 HTTPS 地址，允许包含 `/api` 后缀。环境变量在构建时生效，更新后须重新部署前端。仓库中的生产配置默认使用原 Railway 地址。
+- 生成、个人历史、历史附件和图片分析接口需要有效登录。新记录归属当前用户，原记录的归属不会自动改写；公开分享链接仍可免登录查看。
+- 启动时仅补充旧版历史表缺失的字段，已有字段会跳过，迁移失败将明确终止启动。部署前应先确认原数据库状态，以及是否需要补字段。
+
+本地回归验证（使用隔离的 SQLite 数据库，不连接线上数据库）：
+
+```bash
+# 从 backend 目录运行
+pip install -r requirements.txt pytest
+PYTHONPATH=. python -m pytest tests --basetemp=../work/test-temp -p no:cacheprovider
+
+# 从 frontend 目录运行
+npm ci
+npm test
+npm run build
+```
+
 ## 📁 项目结构
 
 ```

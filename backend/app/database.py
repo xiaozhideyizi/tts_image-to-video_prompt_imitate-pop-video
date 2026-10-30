@@ -1,9 +1,9 @@
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 from app.config import settings
 
-engine = create_async_engine(settings.database_url, echo=False)
+engine = create_async_engine(settings.database_url, echo=False, pool_pre_ping=True)
 AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
@@ -41,12 +41,17 @@ async def init_db():
             ("violation_reason", "TEXT"),
             ("style_weights", "TEXT"),
         ]
+        existing_columns = await conn.run_sync(
+            lambda sync_conn: {
+                column["name"]
+                for column in inspect(sync_conn).get_columns("prompt_histories")
+            }
+        )
         for col_name, col_type in migrations:
-            try:
-                await conn.execute(
-                    text(f"ALTER TABLE prompt_histories ADD COLUMN {col_name} {col_type}")
-                )
-                print(f"[MIGRATION] Added column: prompt_histories.{col_name}")
-            except Exception:
-                # 字段已存在则跳过
-                pass
+            if col_name in existing_columns:
+                continue
+            # PostgreSQL 中捕获重复字段异常也会使整个事务失效，因此先查表结构。
+            await conn.execute(
+                text(f"ALTER TABLE prompt_histories ADD COLUMN {col_name} {col_type}")
+            )
+            print(f"[MIGRATION] Added column: prompt_histories.{col_name}")

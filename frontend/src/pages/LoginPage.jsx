@@ -25,7 +25,13 @@ export default function LoginPage() {
       }
       navigate('/')
     } catch (err) {
-      setError(err.response?.data?.detail || '操作失败，请重试')
+      const status = err.response?.status
+      if (!err.response || status === 404 || status >= 500) {
+        setError('暂时无法连接登录服务，请稍后重试；如果持续出现，请联系管理员检查后端服务。')
+      } else {
+        const detail = err.response?.data?.detail
+        setError(typeof detail === 'string' ? detail : '请检查填写的信息后重试')
+      }
     } finally {
       setLoading(false)
     }
@@ -36,7 +42,7 @@ export default function LoginPage() {
       <div className="auth-box">
         <h2>🎬 广告爆款复刻机</h2>
         <p style={{textAlign:'center',color:'#888',marginTop:-8,marginBottom:16,fontSize:14}}>上传视频，AI一键生成同款提示词</p>
-        {error && <div className="error-msg">{error}</div>}
+        {error && <div className="error-msg" role="alert">{error}</div>}
         <form onSubmit={handleSubmit}>
           <div className="form-field">
             <label>邮箱</label>

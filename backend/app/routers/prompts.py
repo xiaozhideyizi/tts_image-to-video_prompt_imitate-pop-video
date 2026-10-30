@@ -1361,8 +1361,7 @@ async def _analyze_product_image(image_bytes: bytes) -> dict:
 @router.post("/analyze-image")
 async def analyze_image(
     image: UploadFile = File(...),
-    # 临时去掉登录验证，方便测试
-    # current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(get_current_user),
 ):
     """上传产品图片，AI自动分析产品名称、描述和卖点"""
     image_bytes = await image.read()
@@ -1428,8 +1427,7 @@ async def generate_prompts(
     use_ai: bool = Form(True),
     video: UploadFile = File(None),
     image: UploadFile = File(None),
-    # 临时去掉登录验证，方便测试
-    # current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     # 读取上传文件 → 存到本地文件系统（不存数据库 BYTEA）
@@ -1527,7 +1525,7 @@ async def generate_prompts(
     # 保存历史记录（文件存本地，数据库只存JSON元信息）
     try:
         history = models.PromptHistory(
-            user_id=1,  # TODO: 恢复登录后改回 current_user.id
+            user_id=current_user.id,
             product_name=product_name,
             target_market=target_market,
             target_language=target_language,
@@ -1568,11 +1566,14 @@ async def generate_prompts(
 @router.get("/history/{history_id}/video")
 async def get_history_video(
     history_id: int,
-    # current_user: models.User = Depends(get_current_user),  # 临时去掉登录验证
+    current_user: models.User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(models.PromptHistory).where(models.PromptHistory.id == history_id)
+        select(models.PromptHistory).where(
+            models.PromptHistory.id == history_id,
+            models.PromptHistory.user_id == current_user.id,
+        )
     )
     history = result.scalar_one_or_none()
     if not history or not history.video_filename:
@@ -1595,11 +1596,14 @@ async def get_history_video(
 @router.get("/history/{history_id}/image")
 async def get_history_image(
     history_id: int,
-    # current_user: models.User = Depends(get_current_user),  # 临时去掉登录验证
+    current_user: models.User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(models.PromptHistory).where(models.PromptHistory.id == history_id)
+        select(models.PromptHistory).where(
+            models.PromptHistory.id == history_id,
+            models.PromptHistory.user_id == current_user.id,
+        )
     )
     history = result.scalar_one_or_none()
     if not history or not history.image_filename:
@@ -1757,13 +1761,13 @@ async def get_user_stats(
 async def get_history(
     page: int = 1,
     page_size: int = 20,
-    # current_user: models.User = Depends(get_current_user),  # 临时去掉登录验证
+    current_user: models.User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     offset = (page - 1) * page_size
     result = await db.execute(
         select(models.PromptHistory)
-        # .where(models.PromptHistory.user_id == current_user.id)  # 临时去掉
+        .where(models.PromptHistory.user_id == current_user.id)
         .order_by(desc(models.PromptHistory.created_at))
         .offset(offset)
         .limit(page_size)
