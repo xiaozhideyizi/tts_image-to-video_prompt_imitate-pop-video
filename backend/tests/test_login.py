@@ -74,6 +74,32 @@ def test_private_routes_require_login(service):
     assert service.get("/api/auth/me", headers={"Authorization": "Bearer invalid"}).status_code == 401
 
 
+@pytest.mark.parametrize("platform", ["taobao", "douyin"])
+def test_ai_generation_reaches_provider_for_single_and_multiple_groups(service, monkeypatch, platform):
+    import json
+    from types import SimpleNamespace
+    import zhipuai
+    from app.routers import prompts
+
+    generated = [{"index": 1, "styleLabel": "高端大片风", "finalPrompt": "Cinematic product reveal.",
+                  "dynamicStrategy": "Orbit", "audioPlan": "Piano"}]
+    completion = Mock(return_value=SimpleNamespace(choices=[SimpleNamespace(
+        message=SimpleNamespace(content=json.dumps(generated, ensure_ascii=False)))]))
+    monkeypatch.setattr(zhipuai, "ZhipuAI", Mock(return_value=SimpleNamespace(
+        chat=SimpleNamespace(completions=SimpleNamespace(create=completion)))))
+    monkeypatch.setattr(prompts.settings, "ZHIPUAI_API_KEY", "test-provider-key")
+    owner = register(service, f"ai-{platform}")
+    response = service.post("/api/prompts/generate", headers=owner,
+        data={"product_name": "保温杯", "platform": platform, "count": "1", "use_ai": "true"})
+    assert response.status_code == 200, response.text
+    completion.assert_called_once()
+    result = response.json()["prompts"][0]
+    assert "AI词数" in result["audit"]
+    user_prompt = completion.call_args.kwargs["messages"][1]["content"]
+    assert ("SEGMENT GROUPING RULE" in user_prompt) == (platform == "douyin")
+    assert result["promptGroups"]
+
+
 def test_health_checks_database(service, monkeypatch):
     from app import main
 
